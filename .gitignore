@@ -1,0 +1,7 @@
+.vscode-test
+example/.nyc_output
+example/coverage
+example/node_modules
+example/out
+node_modules
+out
