@@ -2,7 +2,7 @@
   "name": "code-coverage",
   "displayName": "Code Coverage",
   "description": "Tool to highlight lines not covered by unit tests.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "markis",
   "preview": true,
   "icon": "images/icon.png",
