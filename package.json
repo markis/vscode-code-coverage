@@ -20,8 +20,7 @@
   "keywords": [
     "code coverage",
     "lcov",
-    "javascript",
-    "typescript"
+    "unit test"
   ],
   "activationEvents": [
     "onLanguage:typescript",
