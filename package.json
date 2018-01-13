@@ -37,11 +37,11 @@
     "test": "node ./node_modules/vscode/bin/test"
   },
   "devDependencies": {
-    "@types/mocha": "^2.2.32",
-    "@types/node": "^8.0.16",
-    "mocha": "^3.4.2",
-    "typescript": "^2.0.3",
-    "vscode": "^1.0.0"
+    "@types/mocha": "2.2.46",
+    "@types/node": "9.3.0",
+    "mocha": "4.1.0",
+    "typescript": "2.6.2",
+    "vscode": "1.1.10"
   },
   "dependencies": {}
 }
