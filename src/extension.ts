@@ -6,10 +6,15 @@ import { parse as parseLcov } from './parse-lcov';
 import { parse as parseConverageJson } from './parse-coverage-json';
 
 export function activate(context: ExtensionContext) {
-  const searchCriteria = 'coverage/lcov*.info';
+  let searchCriteria = 'coverage/lcov*.info';
   const packageInfo = require(join(context.extensionPath, 'package.json'));
   const diagnostics = languages.createDiagnosticCollection('coverage');
   const statusBar = window.createStatusBarItem();
+
+  const config = workspace.getConfiguration("markiscodecoverage");
+  if (config.has("searchCriteria") && config.get("searchCriteria") != "") {
+    searchCriteria = config.get("searchCriteria");
+  }
   const watcher = workspace.createFileSystemWatcher(searchCriteria);
   const coverageByfile = new Map<string, Coverage>();
 

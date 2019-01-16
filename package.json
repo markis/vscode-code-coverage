@@ -8,7 +8,7 @@
   "icon": "images/icon.png",
   "license": "MIT",
   "engines": {
-    "vscode": "^1.13.0"
+    "vscode": "^1.30.0"
   },
   "repository": {
     "type": "git",
@@ -26,10 +26,22 @@
     "onLanguage:typescript",
     "onLanguage:typescriptreact",
     "onLanguage:javascript",
-    "onLanguage:javascriptreact"
+    "onLanguage:javascriptreact",
+    "onLanguage:haxe"
   ],
-  "main": "./out/src/extension",
-  "contributes": {},
+  "main": "./out/src/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Code coverage",
+      "properties": {
+        "markiscodecoverage.searchCriteria": {
+          "type": "string",
+          "default": "coverage/lcov*.info",
+          "description": "Search location for lcov files"
+        }
+      }
+    }
+  },
   "scripts": {
     "vscode:prepublish": "tsc -p ./",
     "compile": "tsc -watch -p ./",
@@ -41,7 +53,7 @@
     "@types/node": "9.3.0",
     "mocha": "4.1.0",
     "typescript": "2.6.2",
-    "vscode": "1.1.10"
+    "vscode": "^1.1.26"
   },
   "dependencies": {}
 }
