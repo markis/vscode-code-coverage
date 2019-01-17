@@ -21,9 +21,9 @@ export function activate(context: ExtensionContext) {
     for (const folder of workspaceFolders) {
       const pattern = new RelativePattern(folder.uri.fsPath, searchCriteria);
       const watcher = workspace.createFileSystemWatcher(pattern);
-      watcher.onDidChange(e => findDiagnostics());
-      watcher.onDidCreate(e => findDiagnostics());
-      watcher.onDidDelete(e => findDiagnostics());
+      watcher.onDidChange(() => findDiagnostics());
+      watcher.onDidCreate(() => findDiagnostics());
+      watcher.onDidDelete(() => findDiagnostics());
     }
   }
 
