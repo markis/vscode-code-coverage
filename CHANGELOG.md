@@ -13,3 +13,9 @@
 - @AlexHaxe - added configuration parameter for custom lcov.info location, fixes #3
 - @AlexHaxe - fixed file watching, see #15
 - Upgraded dependencies
+
+## 1.0.0
+- Big clean up and refactor
+  - Strict typescript
+  - No implicit any
+  - No unused parameters or variables
