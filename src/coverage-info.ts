@@ -11,7 +11,7 @@ export interface Coverage {
 export interface CoverageInfoCollection<T> {
   found: number;
   hit: number;
-  details?: T[];
+  details: T[];
 }
 
 export interface LineCoverageInfo {
