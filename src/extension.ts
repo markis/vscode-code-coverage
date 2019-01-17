@@ -1,24 +1,28 @@
-import { readFile } from 'fs';
 import { join } from 'path';
-import { Diagnostic, DiagnosticCollection, DiagnosticSeverity, ExtensionContext, FileSystemWatcher, languages, Position, Range, Uri, workspace, window } from 'vscode';
-import { Coverage, CoverageCollection, CoverageInfoCollection, BranchCoverageInfo, FunctionCoverageInfo, LineCoverageInfo } from './coverage-info';
+import { Diagnostic, DiagnosticSeverity, ExtensionContext, languages, Position, Range, Uri, RelativePattern, workspace, window } from 'vscode';
+import { Coverage, CoverageCollection, BranchCoverageInfo, FunctionCoverageInfo, LineCoverageInfo } from './coverage-info';
 import { parse as parseLcov } from './parse-lcov';
-import { parse as parseConverageJson } from './parse-coverage-json';
 
 export function activate(context: ExtensionContext) {
-  let searchCriteria = 'coverage/lcov*.info';
   const packageInfo = require(join(context.extensionPath, 'package.json'));
   const diagnostics = languages.createDiagnosticCollection('coverage');
   const statusBar = window.createStatusBarItem();
+  const coverageByfile = new Map<string, Coverage>();
 
+  let searchCriteria = 'coverage/lcov*.info';
   const config = workspace.getConfiguration("markiscodecoverage");
   if (config.has("searchCriteria") && config.get("searchCriteria") != "") {
     searchCriteria = config.get("searchCriteria");
   }
-  const watcher = workspace.createFileSystemWatcher(searchCriteria);
-  const coverageByfile = new Map<string, Coverage>();
+  for (const folder of workspace.workspaceFolders) {
+    const pattern = new RelativePattern(folder.uri.fsPath, searchCriteria);
+    const watcher = workspace.createFileSystemWatcher(pattern);
+    watcher.onDidChange(e => findDiagnostics());
+    watcher.onDidCreate(e => findDiagnostics());
+    watcher.onDidDelete(e => findDiagnostics());
+  }
 
-  context.subscriptions.push(diagnostics, statusBar, watcher);
+  context.subscriptions.push(diagnostics, statusBar);
 
   workspace.onDidChangeTextDocument(e => {
     diagnostics.delete(e.document.uri);
@@ -34,9 +38,6 @@ export function activate(context: ExtensionContext) {
     showStatus(e.document.fileName);
   });
 
-  watcher.onDidChange(e => findDiagnostics());
-  watcher.onDidCreate(e => findDiagnostics());
-  watcher.onDidDelete(e => findDiagnostics());
   findDiagnostics();
 
   function findDiagnostics()  {
@@ -50,13 +51,6 @@ export function activate(context: ExtensionContext) {
             });
         }
       });
-
-    // workspace.findFiles('**/coverage*.json')
-    //   .then(files => {
-    //     for (const file of files) {
-    //       parseConverageJson(file.fsPath).then(convertDiagnostics);
-    //     }
-    //   });
   }
 
   function showStatus(file: string) {
