@@ -1,7 +1,9 @@
 import { join } from 'path';
 import { Diagnostic, DiagnosticSeverity, ExtensionContext, languages, Position, Range, Uri, RelativePattern, workspace, window } from 'vscode';
-import { Coverage, CoverageCollection, BranchCoverageInfo, FunctionCoverageInfo, LineCoverageInfo } from './coverage-info';
+import { Coverage, CoverageCollection, LineCoverageInfo } from './coverage-info';
 import { parse as parseLcov } from './parse-lcov';
+
+const DEFAULT_SEARCH_CRITERIA = 'coverage/lcov*.info';
 
 export function activate(context: ExtensionContext) {
   const packageInfo = require(join(context.extensionPath, 'package.json'));
@@ -9,17 +11,20 @@ export function activate(context: ExtensionContext) {
   const statusBar = window.createStatusBarItem();
   const coverageByfile = new Map<string, Coverage>();
 
-  let searchCriteria = 'coverage/lcov*.info';
-  const config = workspace.getConfiguration("markiscodecoverage");
-  if (config.has("searchCriteria") && config.get("searchCriteria") != "") {
-    searchCriteria = config.get("searchCriteria");
-  }
-  for (const folder of workspace.workspaceFolders) {
-    const pattern = new RelativePattern(folder.uri.fsPath, searchCriteria);
-    const watcher = workspace.createFileSystemWatcher(pattern);
-    watcher.onDidChange(e => findDiagnostics());
-    watcher.onDidCreate(e => findDiagnostics());
-    watcher.onDidDelete(e => findDiagnostics());
+  const config = workspace.getConfiguration('markiscodecoverage');
+  const configSearchCriteria = config.has('searchCriteria') && config.get('searchCriteria');
+  const searchCriteria = configSearchCriteria && typeof configSearchCriteria === 'string' ?
+    configSearchCriteria : DEFAULT_SEARCH_CRITERIA;
+  const workspaceFolders = workspace.workspaceFolders;
+
+  if (workspaceFolders) {
+    for (const folder of workspaceFolders) {
+      const pattern = new RelativePattern(folder.uri.fsPath, searchCriteria);
+      const watcher = workspace.createFileSystemWatcher(pattern);
+      watcher.onDidChange(e => findDiagnostics());
+      watcher.onDidCreate(e => findDiagnostics());
+      watcher.onDidDelete(e => findDiagnostics());
+    }
   }
 
   context.subscriptions.push(diagnostics, statusBar);
@@ -35,7 +40,9 @@ export function activate(context: ExtensionContext) {
     statusBar.hide();
   });
   window.onDidChangeActiveTextEditor(e => {
-    showStatus(e.document.fileName);
+    if (e) {
+      showStatus(e.document.fileName);
+    }
   });
 
   findDiagnostics();
@@ -57,10 +64,12 @@ export function activate(context: ExtensionContext) {
     file = file.toLowerCase();
     if (coverageByfile.has(file)) {
       const coverage = coverageByfile.get(file);
-      const { branches, lines, functions } = coverage;
+      if (coverage) {
+        const { lines } = coverage;
 
-      statusBar.text = `Coverage: ${lines.hit}/${lines.found} lines`;
-      statusBar.show();
+        statusBar.text = `Coverage: ${lines.hit}/${lines.found} lines`;
+        statusBar.show();
+      }
     }
   }
 
@@ -69,17 +78,21 @@ export function activate(context: ExtensionContext) {
     for (const coverage of coverages) {
       coverageByfile.set(coverage.file.toLowerCase(), coverage);
     }
-    showStatus(window.activeTextEditor.document.uri.fsPath);
+    const activeTextEditor = window.activeTextEditor;
+    if (activeTextEditor) {
+      showStatus(activeTextEditor.document.uri.fsPath);
+    }
   }
 
   function convertDiagnostics(coverages: CoverageCollection) {
     for (const coverage of coverages) {
-      const diagnosticsForFiles: Diagnostic[] = [].concat(
-        convertLinesToDiagnostics(coverage.lines.details)
-      );
+      if (coverage && coverage.lines && coverage.lines.details) {
+        const diagnosticsForFiles: Diagnostic[] =
+          convertLinesToDiagnostics(coverage.lines.details);
 
-      if (diagnosticsForFiles.length > 0) {
-        diagnostics.set(Uri.file(coverage.file), diagnosticsForFiles);
+        if (diagnosticsForFiles.length > 0) {
+          diagnostics.set(Uri.file(coverage.file), diagnosticsForFiles);
+        }
       }
     }
   }
@@ -102,42 +115,4 @@ export function activate(context: ExtensionContext) {
     }
     return diagnosticsForFiles;
   }
-
-  // function convertBranchesToDiagnostics(branches: BranchCoverageInfo[]) {
-  //   const diagnosticsForFiles: Diagnostic[] = [];
-  //   for (const branch of branches) {
-  //     if (branch.hit === 0) {
-  //       diagnosticsForFiles.push(
-  //         new Diagnostic(
-  //           new Range(
-  //             new Position(branch.line - 1, 0),
-  //             new Position(branch.line - 1, Number.MAX_VALUE)
-  //           ),
-  //           `[${packageInfo.name}] statement uncovered`,
-  //           DiagnosticSeverity.Information
-  //         )
-  //       );
-  //     }
-  //   }
-  //   return diagnosticsForFiles;
-  // }
-
-  // function convertFunctionsToDiagnostics(functions: FunctionCoverageInfo[]) {
-  //   const diagnosticsForFiles: Diagnostic[] = [];
-  //   for (const func of functions) {
-  //     if (func.hit === 0) {
-  //       diagnosticsForFiles.push(
-  //         new Diagnostic(
-  //           new Range(
-  //             new Position(func.line - 1, 0),
-  //             new Position(func.line - 1, Number.MAX_VALUE)
-  //           ),
-  //           `[${packageInfo.name}] method '${func.name}' uncovered`,
-  //           DiagnosticSeverity.Information
-  //         )
-  //       );
-  //     }
-  //   }
-  //   return diagnosticsForFiles;
-  // }
 }
