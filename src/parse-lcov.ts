@@ -111,8 +111,6 @@ function walkFile(str: string): Promise<CoverageCollection> {
       }
     }
 
-    data.shift();
-
     if (data.length) {
       resolve(data);
     } else {
