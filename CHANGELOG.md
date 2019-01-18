@@ -19,3 +19,9 @@
   - Strict typescript
   - No implicit any
   - No unused parameters or variables
+
+## 1.0.1
+- Big thanks to @AlexHaxe
+  - added Java and C# to activationEvents, fixes #12
+  - fix for windows path names
+  - fixed trailing colon on linux
