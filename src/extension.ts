@@ -30,11 +30,15 @@ export function activate(context: ExtensionContext) {
   context.subscriptions.push(diagnostics, statusBar);
 
   workspace.onDidChangeTextDocument(e => {
-    diagnostics.delete(e.document.uri);
-    showStatus(e.document.uri.fsPath);
+    if (e) {
+      diagnostics.delete(e.document.uri);
+      showStatus(e.document.uri.fsPath);
+    }
   });
   workspace.onDidOpenTextDocument(e => {
-    showStatus(e.fileName);
+    if (e) {
+      showStatus(e.fileName);
+    }
   });
   workspace.onDidCloseTextDocument(() => {
     statusBar.hide();

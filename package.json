@@ -22,11 +22,13 @@
     "unit test"
   ],
   "activationEvents": [
-    "onLanguage:typescript",
-    "onLanguage:typescriptreact",
+    "onLanguage:csharp",
+    "onLanguage:haxe",
+    "onLanguage:java",
     "onLanguage:javascript",
     "onLanguage:javascriptreact",
-    "onLanguage:haxe"
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact"
   ],
   "main": "./out/src/extension.js",
   "contributes": {
