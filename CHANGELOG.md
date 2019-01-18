@@ -25,3 +25,6 @@
   - added Java and C# to activationEvents, fixes #12
   - fix for windows path names
   - fixed trailing colon on linux
+  
+## 1.0.2
+- Minor bug that ended up removing the first coverage
