@@ -20,7 +20,7 @@ function walkFile(str: string): Promise<CoverageCollection> {
             item.title = args.trim();
             break;
           } case 'SF': {
-            item.file = parts.slice(1).join(':').trim();
+            item.file = parts.join(':').trim();
             break;
           } case 'FNF': {
             item.functions.found = Number(args.trim());
