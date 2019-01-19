@@ -41,7 +41,9 @@ export function activate(context: ExtensionContext) {
     }
   });
   workspace.onDidCloseTextDocument(() => {
-    statusBar.hide();
+    if (!window.activeTextEditor) {
+      statusBar.hide();
+    }
   });
   window.onDidChangeActiveTextEditor(e => {
     if (e) {
@@ -73,6 +75,11 @@ export function activate(context: ExtensionContext) {
 
         statusBar.text = `Coverage: ${lines.hit}/${lines.found} lines`;
         statusBar.show();
+      }
+    } else {
+      const activeTextEditor = window.activeTextEditor;
+      if (activeTextEditor && (activeTextEditor.document.uri.fsPath.toLowerCase() === file)) {
+        statusBar.text = "";
       }
     }
   }
