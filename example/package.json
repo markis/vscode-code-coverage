@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "pretest": "tsc --outDir out --sourceMap index.ts test.ts",
+    "pretest": "tsc --lib es6 --outDir out --sourceMap index.ts test.ts",
     "test": "nyc --reporter=lcov -- node ./out/test.js"
   },
   "author": "example@example.com",
