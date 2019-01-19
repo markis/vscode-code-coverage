@@ -96,6 +96,8 @@ export function activate(context: ExtensionContext) {
 
         if (diagnosticsForFiles.length > 0) {
           diagnostics.set(Uri.file(coverage.file), diagnosticsForFiles);
+        } else {
+          diagnostics.delete(Uri.file(coverage.file));
         }
       }
     }
