@@ -79,7 +79,7 @@ export function activate(context: ExtensionContext) {
     } else {
       const activeTextEditor = window.activeTextEditor;
       if (activeTextEditor && (activeTextEditor.document.uri.fsPath.toLowerCase() === file)) {
-        statusBar.text = "";
+        statusBar.hide ();
       }
     }
   }
