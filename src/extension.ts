@@ -35,20 +35,14 @@ export function activate(context: ExtensionContext) {
       showStatus();
     }
   });
-  workspace.onDidOpenTextDocument(e => {
-    if (e) {
-      showStatus();
-    }
+  workspace.onDidOpenTextDocument(() => {
+    showStatus();
   });
   workspace.onDidCloseTextDocument(() => {
-    if (!window.activeTextEditor) {
-      statusBar.hide();
-    }
+    showStatus();
   });
-  window.onDidChangeActiveTextEditor(e => {
-    if (e) {
-      showStatus();
-    }
+  window.onDidChangeActiveTextEditor(() => {
+    showStatus();
   });
 
   findDiagnostics();
@@ -69,6 +63,7 @@ export function activate(context: ExtensionContext) {
   function showStatus() {
     const activeTextEditor = window.activeTextEditor;
     if (!activeTextEditor) {
+      statusBar.hide();
       return;
     }
     const file: string = activeTextEditor.document.uri.fsPath.toLowerCase();
