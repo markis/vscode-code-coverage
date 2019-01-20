@@ -32,12 +32,12 @@ export function activate(context: ExtensionContext) {
   workspace.onDidChangeTextDocument(e => {
     if (e) {
       diagnostics.delete(e.document.uri);
-      showStatus(e.document.uri.fsPath);
+      showStatus();
     }
   });
   workspace.onDidOpenTextDocument(e => {
     if (e) {
-      showStatus(e.fileName);
+      showStatus();
     }
   });
   workspace.onDidCloseTextDocument(() => {
@@ -47,7 +47,7 @@ export function activate(context: ExtensionContext) {
   });
   window.onDidChangeActiveTextEditor(e => {
     if (e) {
-      showStatus(e.document.fileName);
+      showStatus();
     }
   });
 
@@ -66,8 +66,12 @@ export function activate(context: ExtensionContext) {
       });
   }
 
-  function showStatus(file: string) {
-    file = file.toLowerCase();
+  function showStatus() {
+    const activeTextEditor = window.activeTextEditor;
+    if (!activeTextEditor) {
+      return;
+    }
+    const file: string = activeTextEditor.document.uri.fsPath.toLowerCase();
     if (coverageByfile.has(file)) {
       const coverage = coverageByfile.get(file);
       if (coverage) {
@@ -77,10 +81,7 @@ export function activate(context: ExtensionContext) {
         statusBar.show();
       }
     } else {
-      const activeTextEditor = window.activeTextEditor;
-      if (activeTextEditor && (activeTextEditor.document.uri.fsPath.toLowerCase() === file)) {
-        statusBar.hide ();
-      }
+      statusBar.hide ();
     }
   }
 
@@ -89,10 +90,7 @@ export function activate(context: ExtensionContext) {
     for (const coverage of coverages) {
       coverageByfile.set(coverage.file.toLowerCase(), coverage);
     }
-    const activeTextEditor = window.activeTextEditor;
-    if (activeTextEditor) {
-      showStatus(activeTextEditor.document.uri.fsPath);
-    }
+    showStatus();
   }
 
   function convertDiagnostics(coverages: CoverageCollection) {
