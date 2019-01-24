@@ -39,6 +39,22 @@
           "type": "string",
           "default": "coverage/lcov*.info",
           "description": "Search location for lcov files"
+        },
+        "markiscodecoverage.detailCoverageMode": {
+          "type": "string",
+          "default": "all",
+          "enum": [
+            "never",
+            "all",
+            "open",
+            "active"
+          ],
+          "description": "Shows detailed coverage diagnostics for all files or open files"
+        },
+        "markiscodecoverage.summaryWithCurly": {
+          "type": "boolean",
+          "default": true,
+          "description": "Shows curly lines from first to last uncovered file for summary diagnostics"
         }
       }
     }
