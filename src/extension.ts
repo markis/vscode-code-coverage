@@ -32,21 +32,17 @@ export function activate(context: ExtensionContext) {
   workspace.onDidChangeTextDocument(e => {
     if (e) {
       diagnostics.delete(e.document.uri);
-      showStatus(e.document.uri.fsPath);
+      showStatus();
     }
   });
-  workspace.onDidOpenTextDocument(e => {
-    if (e) {
-      showStatus(e.fileName);
-    }
+  workspace.onDidOpenTextDocument(() => {
+    showStatus();
   });
   workspace.onDidCloseTextDocument(() => {
-    statusBar.hide();
+    showStatus();
   });
-  window.onDidChangeActiveTextEditor(e => {
-    if (e) {
-      showStatus(e.document.fileName);
-    }
+  window.onDidChangeActiveTextEditor(() => {
+    showStatus();
   });
 
   findDiagnostics();
@@ -64,8 +60,13 @@ export function activate(context: ExtensionContext) {
       });
   }
 
-  function showStatus(file: string) {
-    file = file.toLowerCase();
+  function showStatus() {
+    const activeTextEditor = window.activeTextEditor;
+    if (!activeTextEditor) {
+      statusBar.hide();
+      return;
+    }
+    const file: string = activeTextEditor.document.uri.fsPath.toLowerCase();
     if (coverageByfile.has(file)) {
       const coverage = coverageByfile.get(file);
       if (coverage) {
@@ -74,6 +75,8 @@ export function activate(context: ExtensionContext) {
         statusBar.text = `Coverage: ${lines.hit}/${lines.found} lines`;
         statusBar.show();
       }
+    } else {
+      statusBar.hide ();
     }
   }
 
@@ -82,10 +85,7 @@ export function activate(context: ExtensionContext) {
     for (const coverage of coverages) {
       coverageByfile.set(coverage.file.toLowerCase(), coverage);
     }
-    const activeTextEditor = window.activeTextEditor;
-    if (activeTextEditor) {
-      showStatus(activeTextEditor.document.uri.fsPath);
-    }
+    showStatus();
   }
 
   function convertDiagnostics(coverages: CoverageCollection) {
@@ -96,6 +96,8 @@ export function activate(context: ExtensionContext) {
 
         if (diagnosticsForFiles.length > 0) {
           diagnostics.set(Uri.file(coverage.file), diagnosticsForFiles);
+        } else {
+          diagnostics.delete(Uri.file(coverage.file));
         }
       }
     }
