@@ -22,13 +22,28 @@
     "unit test"
   ],
   "activationEvents": [
+    "onLanguage:clojure",
+    "onLanguage:coffeescript",
+    "onLanguage:c",
+    "onLanguage:cpp",
     "onLanguage:csharp",
+    "onLanguage:fsharp",
+    "onLanguage:go",
     "onLanguage:haxe",
     "onLanguage:java",
     "onLanguage:javascript",
     "onLanguage:javascriptreact",
+    "onLanguage:objective-c",
+    "onLanguage:objective-cpp",
+    "onLanguage:perl",
+    "onLanguage:perl6",
+    "onLanguage:php",
+    "onLanguage:python",
+    "onLanguage:ruby",
+    "onLanguage:rust",
     "onLanguage:typescript",
-    "onLanguage:typescriptreact"
+    "onLanguage:typescriptreact",
+    "onLanguage:vb"
   ],
   "main": "./out/src/extension.js",
   "contributes": {
