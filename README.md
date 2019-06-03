@@ -14,5 +14,5 @@ Code coverage will put squiggly lines under functions, lines or code branches th
 
 ## Setup
 
-* Ensure your project has generated lcov file(s) using [nyc](https://www.npmjs.com/package/nyc), [istanbul](https://www.npmjs.com/package/istanbul) or other code coverage tools.
+* Ensure your project has generated lcov file(s) using your language's code coverage tools.
 * Update the `markiscodecoverage.searchCriteria` setting, default: `coverage/lcov*.info`
