@@ -68,11 +68,11 @@
   },
   "devDependencies": {
     "@types/glob": "^7.1.1",
-    "@types/mocha": "5.2.7",
-    "@types/node": "12.0.4",
+    "@types/mocha": "7.0.1",
+    "@types/node": "13.7.0",
     "@types/vscode": "^1.41.0",
     "glob": "^7.1.6",
-    "mocha": "6.1.4",
+    "mocha": "7.0.1",
     "typescript": "^3.7.5",
     "vscode-test": "^1.3.0"
   },
