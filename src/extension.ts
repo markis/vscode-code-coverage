@@ -1,4 +1,4 @@
-import { join } from 'path';
+import { join, isAbsolute } from 'path';
 import { Diagnostic, DiagnosticSeverity, ExtensionContext, languages, Position, Range, Uri, RelativePattern, workspace, window } from 'vscode';
 import { Coverage, CoverageCollection, LineCoverageInfo } from './coverage-info';
 import { parse as parseLcov } from './parse-lcov';
@@ -53,8 +53,9 @@ export function activate(context: ExtensionContext) {
         for (const file of files) {
           parseLcov(file.fsPath)
             .then(coverages => {
+              const workspaceFolder = getWorkspaceFolder(file.fsPath);
               recordFileCoverage(coverages);
-              convertDiagnostics(coverages);
+              convertDiagnostics(coverages, workspaceFolder);
             });
         }
       });
@@ -88,18 +89,25 @@ export function activate(context: ExtensionContext) {
     showStatus();
   }
 
-  function convertDiagnostics(coverages: CoverageCollection) {
+  function getWorkspaceFolder(absolutePath: string): string | undefined {
+    for (const folder in workspace.workspaceFolders) {
+      if (absolutePath.startsWith(folder)) {
+        return folder;
+      }
+    }
+    return;
+  }
+
+  function convertDiagnostics(coverages: CoverageCollection, workspaceFolder: string | undefined) {
     for (const coverage of coverages) {
       if (coverage && coverage.lines && coverage.lines.details) {
         const diagnosticsForFiles: Diagnostic[] =
           convertLinesToDiagnostics(coverage.lines.details);
 
-        let fileName = coverage.file;
-        const is_absolue_path = fileName.length > 2 && (fileName[0] === "/" || fileName[1] === ":");
-        if (!is_absolue_path && workspace.rootPath != undefined) {
-          fileName = join(workspace.rootPath, fileName);
-        }
-
+        const fileName = !isAbsolute(coverage.file) && workspaceFolder
+          ? join(workspaceFolder, coverage.file)
+          : coverage.file;
+        
         if (diagnosticsForFiles.length > 0) {
           diagnostics.set(Uri.file(fileName), diagnosticsForFiles);
         } else {
