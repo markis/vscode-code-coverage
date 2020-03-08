@@ -94,10 +94,16 @@ export function activate(context: ExtensionContext) {
         const diagnosticsForFiles: Diagnostic[] =
           convertLinesToDiagnostics(coverage.lines.details);
 
+        let fileName = coverage.file;
+        const is_absolue_path = fileName.length > 2 && (fileName[0] === "/" || fileName[1] === ":");
+        if (!is_absolue_path && workspace.rootPath != undefined) {
+          fileName = join(workspace.rootPath, fileName);
+        }
+
         if (diagnosticsForFiles.length > 0) {
-          diagnostics.set(Uri.file(coverage.file), diagnosticsForFiles);
+          diagnostics.set(Uri.file(fileName), diagnosticsForFiles);
         } else {
-          diagnostics.delete(Uri.file(coverage.file));
+          diagnostics.delete(Uri.file(fileName));
         }
       }
     }
