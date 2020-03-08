@@ -21,9 +21,9 @@ export function activate(context: ExtensionContext) {
     for (const folder of workspaceFolders) {
       const pattern = new RelativePattern(folder.uri.fsPath, searchCriteria);
       const watcher = workspace.createFileSystemWatcher(pattern);
-      watcher.onDidChange(() => findDiagnostics());
-      watcher.onDidCreate(() => findDiagnostics());
-      watcher.onDidDelete(() => findDiagnostics());
+      watcher.onDidChange(() => findDiagnostics(folder.uri.toString()));
+      watcher.onDidCreate(() => findDiagnostics(folder.uri.toString()));
+      watcher.onDidDelete(() => findDiagnostics(folder.uri.toString()));
     }
   }
 
@@ -45,15 +45,14 @@ export function activate(context: ExtensionContext) {
     showStatus();
   });
 
-  findDiagnostics();
+  findDiagnostics(workspace.rootPath);
 
-  function findDiagnostics()  {
+  function findDiagnostics(workspaceFolder: string | undefined) {
     workspace.findFiles(searchCriteria)
       .then(files => {
         for (const file of files) {
           parseLcov(file.fsPath)
             .then(coverages => {
-              const workspaceFolder = getWorkspaceFolder(file.fsPath);
               recordFileCoverage(coverages);
               convertDiagnostics(coverages, workspaceFolder);
             });
@@ -77,7 +76,7 @@ export function activate(context: ExtensionContext) {
         statusBar.show();
       }
     } else {
-      statusBar.hide ();
+      statusBar.hide();
     }
   }
 
@@ -89,15 +88,6 @@ export function activate(context: ExtensionContext) {
     showStatus();
   }
 
-  function getWorkspaceFolder(absolutePath: string): string | undefined {
-    for (const folder in workspace.workspaceFolders) {
-      if (absolutePath.startsWith(folder)) {
-        return folder;
-      }
-    }
-    return;
-  }
-
   function convertDiagnostics(coverages: CoverageCollection, workspaceFolder: string | undefined) {
     for (const coverage of coverages) {
       if (coverage && coverage.lines && coverage.lines.details) {
@@ -107,7 +97,7 @@ export function activate(context: ExtensionContext) {
         const fileName = !isAbsolute(coverage.file) && workspaceFolder
           ? join(workspaceFolder, coverage.file)
           : coverage.file;
-        
+
         if (diagnosticsForFiles.length > 0) {
           diagnostics.set(Uri.file(fileName), diagnosticsForFiles);
         } else {
