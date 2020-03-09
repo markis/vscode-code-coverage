@@ -1,0 +1,22 @@
+name: Publish extension when tagged with a new version
+
+on:
+  push:
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.3.1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+
+    - uses: actions/checkout@v2
+    - run: npm install
+
+    - uses: markis/vsce-action@master
+      with:
+        args: "publish -p $VSCE_TOKEN"
+      env:
+        # To get a token, follow the instructions here:
+        # https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token
+        VSCE_TOKEN: ${{ secrets.VSCE_TOKEN }}
