@@ -1,4 +1,4 @@
-import { join } from 'path';
+import { join, isAbsolute } from 'path';
 import { Diagnostic, DiagnosticSeverity, ExtensionContext, languages, Position, Range, Uri, RelativePattern, workspace, window } from 'vscode';
 import { Coverage, CoverageCollection, LineCoverageInfo } from './coverage-info';
 import { parse as parseLcov } from './parse-lcov';
@@ -21,9 +21,9 @@ export function activate(context: ExtensionContext) {
     for (const folder of workspaceFolders) {
       const pattern = new RelativePattern(folder.uri.fsPath, searchCriteria);
       const watcher = workspace.createFileSystemWatcher(pattern);
-      watcher.onDidChange(() => findDiagnostics());
-      watcher.onDidCreate(() => findDiagnostics());
-      watcher.onDidDelete(() => findDiagnostics());
+      watcher.onDidChange(() => findDiagnostics(folder.uri.toString()));
+      watcher.onDidCreate(() => findDiagnostics(folder.uri.toString()));
+      watcher.onDidDelete(() => findDiagnostics(folder.uri.toString()));
     }
   }
 
@@ -45,16 +45,16 @@ export function activate(context: ExtensionContext) {
     showStatus();
   });
 
-  findDiagnostics();
+  findDiagnostics(workspace.rootPath);
 
-  function findDiagnostics()  {
+  function findDiagnostics(workspaceFolder: string | undefined) {
     workspace.findFiles(searchCriteria)
       .then(files => {
         for (const file of files) {
           parseLcov(file.fsPath)
             .then(coverages => {
               recordFileCoverage(coverages);
-              convertDiagnostics(coverages);
+              convertDiagnostics(coverages, workspaceFolder);
             });
         }
       });
@@ -76,7 +76,7 @@ export function activate(context: ExtensionContext) {
         statusBar.show();
       }
     } else {
-      statusBar.hide ();
+      statusBar.hide();
     }
   }
 
@@ -88,16 +88,20 @@ export function activate(context: ExtensionContext) {
     showStatus();
   }
 
-  function convertDiagnostics(coverages: CoverageCollection) {
+  function convertDiagnostics(coverages: CoverageCollection, workspaceFolder: string | undefined) {
     for (const coverage of coverages) {
       if (coverage && coverage.lines && coverage.lines.details) {
         const diagnosticsForFiles: Diagnostic[] =
           convertLinesToDiagnostics(coverage.lines.details);
 
+        const fileName = !isAbsolute(coverage.file) && workspaceFolder
+          ? join(workspaceFolder, coverage.file)
+          : coverage.file;
+
         if (diagnosticsForFiles.length > 0) {
-          diagnostics.set(Uri.file(coverage.file), diagnosticsForFiles);
+          diagnostics.set(Uri.file(fileName), diagnosticsForFiles);
         } else {
-          diagnostics.delete(Uri.file(coverage.file));
+          diagnostics.delete(Uri.file(fileName));
         }
       }
     }
