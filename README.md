@@ -1,7 +1,5 @@
 # Code Coverage
 
-[![Greenkeeper badge](https://badges.greenkeeper.io/markis/vscode-code-coverage.svg)](https://greenkeeper.io/)
-
 Code coverage will put squiggly lines under functions, lines or code branches that are not covered by unit tests. And will list the uncovered lines under the problems window.
 
 ![Demo](images/demo.png)
