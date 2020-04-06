@@ -27,4 +27,5 @@ install:
   - yarn vscode:prepublish
 
 script:
+  - yarn lint
   - yarn test
