@@ -1,20 +1,38 @@
-import { join, isAbsolute } from 'path';
-import { Diagnostic, DiagnosticSeverity, ExtensionContext, languages, Position, Range, Uri, RelativePattern, workspace, window } from 'vscode';
-import { Coverage, CoverageCollection, LineCoverageInfo } from './coverage-info';
-import { parse as parseLcov } from './parse-lcov';
+import { join, isAbsolute } from "path";
+import {
+  Diagnostic,
+  DiagnosticSeverity,
+  ExtensionContext,
+  languages,
+  Position,
+  Range,
+  Uri,
+  RelativePattern,
+  workspace,
+  window
+} from "vscode";
+import {
+  Coverage,
+  CoverageCollection,
+  LineCoverageInfo
+} from "./coverage-info";
+import { parse as parseLcov } from "./parse-lcov";
 
-const DEFAULT_SEARCH_CRITERIA = 'coverage/lcov*.info';
+const DEFAULT_SEARCH_CRITERIA = "coverage/lcov*.info";
 
 export function activate(context: ExtensionContext) {
-  const packageInfo = require(join(context.extensionPath, 'package.json'));
-  const diagnostics = languages.createDiagnosticCollection('coverage');
+  const packageInfo = require(join(context.extensionPath, "package.json"));
+  const diagnostics = languages.createDiagnosticCollection("coverage");
   const statusBar = window.createStatusBarItem();
   const coverageByfile = new Map<string, Coverage>();
 
-  const config = workspace.getConfiguration('markiscodecoverage');
-  const configSearchCriteria = config.has('searchCriteria') && config.get('searchCriteria');
-  const searchCriteria = configSearchCriteria && typeof configSearchCriteria === 'string' ?
-    configSearchCriteria : DEFAULT_SEARCH_CRITERIA;
+  const config = workspace.getConfiguration("markiscodecoverage");
+  const configSearchCriteria =
+    config.has("searchCriteria") && config.get("searchCriteria");
+  const searchCriteria =
+    configSearchCriteria && typeof configSearchCriteria === "string"
+      ? configSearchCriteria
+      : DEFAULT_SEARCH_CRITERIA;
   const workspaceFolders = workspace.workspaceFolders;
 
   if (workspaceFolders) {
@@ -48,16 +66,14 @@ export function activate(context: ExtensionContext) {
   findDiagnostics(workspace.rootPath);
 
   function findDiagnostics(workspaceFolder: string | undefined) {
-    workspace.findFiles(searchCriteria)
-      .then(files => {
-        for (const file of files) {
-          parseLcov(file.fsPath)
-            .then(coverages => {
-              recordFileCoverage(coverages);
-              convertDiagnostics(coverages, workspaceFolder);
-            });
-        }
-      });
+    workspace.findFiles(searchCriteria).then(files => {
+      for (const file of files) {
+        parseLcov(file.fsPath).then(coverages => {
+          recordFileCoverage(coverages);
+          convertDiagnostics(coverages, workspaceFolder);
+        });
+      }
+    });
   }
 
   function showStatus() {
@@ -88,15 +104,20 @@ export function activate(context: ExtensionContext) {
     showStatus();
   }
 
-  function convertDiagnostics(coverages: CoverageCollection, workspaceFolder: string | undefined) {
+  function convertDiagnostics(
+    coverages: CoverageCollection,
+    workspaceFolder: string | undefined
+  ) {
     for (const coverage of coverages) {
       if (coverage && coverage.lines && coverage.lines.details) {
-        const diagnosticsForFiles: Diagnostic[] =
-          convertLinesToDiagnostics(coverage.lines.details);
+        const diagnosticsForFiles: Diagnostic[] = convertLinesToDiagnostics(
+          coverage.lines.details
+        );
 
-        const fileName = !isAbsolute(coverage.file) && workspaceFolder
-          ? join(workspaceFolder, coverage.file)
-          : coverage.file;
+        const fileName =
+          !isAbsolute(coverage.file) && workspaceFolder
+            ? join(workspaceFolder, coverage.file)
+            : coverage.file;
 
         if (diagnosticsForFiles.length > 0) {
           diagnostics.set(Uri.file(fileName), diagnosticsForFiles);
