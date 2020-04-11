@@ -16,7 +16,7 @@ They then run as a Mocha test suite in the extension host, so their output isn't
 
 ### Design considerations
 
-The new fix to allow for multi-root workspaces means that the search criteria apply to all workspace folders at once.
+Based on the nature of multi-root workspaces and how they operate, it means that the search criteria apply to all workspace folders at once.
 
 In general this makes sense, as most projects will always have their coverage under `coverage/lcov*.info`.
 
