@@ -9,7 +9,8 @@ import {
   Uri,
   RelativePattern,
   workspace,
-  window
+  window,
+  WorkspaceFolder
 } from "vscode";
 import {
   Coverage,
@@ -35,18 +36,20 @@ export function activate(context: ExtensionContext) {
       : DEFAULT_SEARCH_CRITERIA;
   const workspaceFolders = workspace.workspaceFolders;
 
+  // Register watchers for file changes on coverage files to re-run the coverage parser
   if (workspaceFolders) {
     for (const folder of workspaceFolders) {
       const pattern = new RelativePattern(folder.uri.fsPath, searchCriteria);
       const watcher = workspace.createFileSystemWatcher(pattern);
-      watcher.onDidChange(() => findDiagnostics(folder.uri.toString()));
-      watcher.onDidCreate(() => findDiagnostics(folder.uri.toString()));
-      watcher.onDidDelete(() => findDiagnostics(folder.uri.toString()));
+      watcher.onDidChange(() => findDiagnostics(folder));
+      watcher.onDidCreate(() => findDiagnostics(folder));
+      watcher.onDidDelete(() => findDiagnostics(folder));
     }
   }
 
   context.subscriptions.push(diagnostics, statusBar);
 
+  // Update status bar on changes to any open file
   workspace.onDidChangeTextDocument(e => {
     if (e) {
       diagnostics.delete(e.document.uri);
@@ -63,19 +66,29 @@ export function activate(context: ExtensionContext) {
     showStatus();
   });
 
-  findDiagnostics(workspace.rootPath);
 
-  function findDiagnostics(workspaceFolder: string | undefined) {
-    workspace.findFiles(searchCriteria).then(files => {
+  // Run the main routine at activation time as well
+  if (workspaceFolders) {
+    for (const folder of workspaceFolders) {
+      findDiagnostics(folder);
+    }
+  }
+
+  // Finds VSCode diagnostics to display based on a coverage file specified by the search pattern in each workspace folder
+  function findDiagnostics(workspaceFolder: WorkspaceFolder) {
+    let searchPattern = new RelativePattern(workspaceFolder, searchCriteria)
+
+    workspace.findFiles(searchPattern).then(files => {
       for (const file of files) {
         parseLcov(file.fsPath).then(coverages => {
           recordFileCoverage(coverages);
-          convertDiagnostics(coverages, workspaceFolder);
+          convertDiagnostics(coverages, workspaceFolder.uri.fsPath);
         });
       }
     });
   }
 
+  // Show the coverage in the VSCode status bar at the bottom
   function showStatus() {
     const activeTextEditor = window.activeTextEditor;
     if (!activeTextEditor) {
@@ -104,6 +117,7 @@ export function activate(context: ExtensionContext) {
     showStatus();
   }
 
+  // Takes parsed coverage information and turns it into diagnostics
   function convertDiagnostics(
     coverages: CoverageCollection,
     workspaceFolder: string | undefined
