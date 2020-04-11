@@ -66,7 +66,6 @@ export function activate(context: ExtensionContext) {
     showStatus();
   });
 
-
   // Run the main routine at activation time as well
   if (workspaceFolders) {
     for (const folder of workspaceFolders) {
@@ -76,7 +75,7 @@ export function activate(context: ExtensionContext) {
 
   // Finds VSCode diagnostics to display based on a coverage file specified by the search pattern in each workspace folder
   function findDiagnostics(workspaceFolder: WorkspaceFolder) {
-    let searchPattern = new RelativePattern(workspaceFolder, searchCriteria)
+    let searchPattern = new RelativePattern(workspaceFolder, searchCriteria);
 
     workspace.findFiles(searchPattern).then(files => {
       for (const file of files) {

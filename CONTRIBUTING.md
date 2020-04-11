@@ -3,6 +3,7 @@
 The `.vscode` folder contains launch configurations so you can test the extension.
 
 ### Get started
+
 - Clone the repo
 - `yarn install`
 - Open VSCode and run the `Launch Extension` target
