@@ -32,6 +32,7 @@ jobs:
     - run: npm ci
     - run: npm run build --if-present
     - run: npm run lint --if-present
+      if: matrix.os == 'ubuntu-latest'
     - run: npm test
       env:
         CI: true
