@@ -10,12 +10,12 @@ import {
   RelativePattern,
   workspace,
   window,
-  WorkspaceFolder
+  WorkspaceFolder,
 } from "vscode";
 import {
   Coverage,
   CoverageCollection,
-  LineCoverageInfo
+  LineCoverageInfo,
 } from "./coverage-info";
 import { parse as parseLcov } from "./parse-lcov";
 
@@ -50,7 +50,7 @@ export function activate(context: ExtensionContext) {
   context.subscriptions.push(diagnostics, statusBar);
 
   // Update status bar on changes to any open file
-  workspace.onDidChangeTextDocument(e => {
+  workspace.onDidChangeTextDocument((e) => {
     if (e) {
       diagnostics.delete(e.document.uri);
       showStatus();
@@ -77,9 +77,9 @@ export function activate(context: ExtensionContext) {
   function findDiagnostics(workspaceFolder: WorkspaceFolder) {
     const searchPattern = new RelativePattern(workspaceFolder, searchCriteria);
 
-    workspace.findFiles(searchPattern).then(files => {
+    workspace.findFiles(searchPattern).then((files) => {
       for (const file of files) {
-        parseLcov(file.fsPath).then(coverages => {
+        parseLcov(file.fsPath).then((coverages) => {
           recordFileCoverage(coverages);
           convertDiagnostics(coverages, workspaceFolder.uri.fsPath);
         });
