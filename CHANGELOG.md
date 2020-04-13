@@ -28,3 +28,9 @@
   
 ## 1.0.2
 - Minor bug that ended up removing the first coverage
+
+## 1.2.0
+- Fix issues related to multiple workspaces
+
+## 1.2.1
+- Fix minor bugs related to multiple workspaces
