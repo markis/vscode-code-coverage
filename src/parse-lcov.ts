@@ -45,7 +45,7 @@ function walkFile(str: string): Promise<CoverageCollection> {
               const details = args.split(",");
               item.lines.details.push({
                 line: Number(details[0]),
-                hit: Number(details[1])
+                hit: Number(details[1]),
               });
             }
             break;
@@ -63,7 +63,7 @@ function walkFile(str: string): Promise<CoverageCollection> {
               const fn = args.split(",");
               item.functions.details.push({
                 name: fn[1],
-                line: Number(fn[0])
+                line: Number(fn[0]),
               });
             }
             break;
@@ -90,7 +90,7 @@ function walkFile(str: string): Promise<CoverageCollection> {
                 line: Number(fn[0]),
                 block: Number(fn[1]),
                 branch: Number(fn[2]),
-                hit: fn[3] === "-" ? 0 : Number(fn[3])
+                hit: fn[3] === "-" ? 0 : Number(fn[3]),
               });
             }
             break;
@@ -106,18 +106,18 @@ function walkFile(str: string): Promise<CoverageCollection> {
           lines: {
             found: 0,
             hit: 0,
-            details: []
+            details: [],
           },
           functions: {
             hit: 0,
             found: 0,
-            details: []
+            details: [],
           },
           branches: {
             hit: 0,
             found: 0,
-            details: []
-          }
+            details: [],
+          },
         };
       }
     }
@@ -132,15 +132,11 @@ function walkFile(str: string): Promise<CoverageCollection> {
 
 export function parse(file: string): Promise<CoverageCollection> {
   return new Promise((resolve, reject) => {
-    exists(file, exists => {
+    exists(file, (exists) => {
       !exists
-        ? walkFile(file)
-            .then(resolve)
-            .catch(reject)
+        ? walkFile(file).then(resolve).catch(reject)
         : readFile(file, "utf8", (_, str) => {
-            walkFile(str)
-              .then(resolve)
-              .catch(reject);
+            walkFile(str).then(resolve).catch(reject);
           });
     });
   });
