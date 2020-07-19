@@ -80,7 +80,7 @@ export function activate(context: ExtensionContext) {
     workspace.findFiles(searchPattern).then((files) => {
       for (const file of files) {
         parseLcov(file.fsPath).then((coverages) => {
-          recordFileCoverage(coverages);
+          recordFileCoverage(coverages, workspaceFolder.uri.fsPath);
           convertDiagnostics(coverages, workspaceFolder.uri.fsPath);
         });
       }
@@ -108,10 +108,18 @@ export function activate(context: ExtensionContext) {
     }
   }
 
-  function recordFileCoverage(coverages: CoverageCollection) {
+  function recordFileCoverage(
+    coverages: CoverageCollection,
+    workspaceFolder: string | undefined
+  ) {
     coverageByFile.clear();
     for (const coverage of coverages) {
-      coverageByFile.set(coverage.file, coverage);
+      const fileName =
+        !isAbsolute(coverage.file) && workspaceFolder
+          ? join(workspaceFolder, coverage.file)
+          : coverage.file;
+
+      coverageByFile.set(fileName, coverage);
     }
     showStatus();
   }
