@@ -94,7 +94,7 @@ export function activate(context: ExtensionContext) {
       statusBar.hide();
       return;
     }
-    const file: string = activeTextEditor.document.uri.fsPath.toLowerCase();
+    const file: string = activeTextEditor.document.uri.fsPath;
     if (coverageByFile.has(file)) {
       const coverage = coverageByFile.get(file);
       if (coverage) {
@@ -111,7 +111,7 @@ export function activate(context: ExtensionContext) {
   function recordFileCoverage(coverages: CoverageCollection) {
     coverageByFile.clear();
     for (const coverage of coverages) {
-      coverageByFile.set(coverage.file.toLowerCase(), coverage);
+      coverageByFile.set(coverage.file, coverage);
     }
     showStatus();
   }
