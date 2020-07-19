@@ -25,7 +25,7 @@ export function activate(context: ExtensionContext) {
   const packageInfo = require(join(context.extensionPath, "package.json"));
   const diagnostics = languages.createDiagnosticCollection("coverage");
   const statusBar = window.createStatusBarItem();
-  const coverageByfile = new Map<string, Coverage>();
+  const coverageByFile = new Map<string, Coverage>();
 
   const config = workspace.getConfiguration("markiscodecoverage");
   const configSearchCriteria =
@@ -95,8 +95,8 @@ export function activate(context: ExtensionContext) {
       return;
     }
     const file: string = activeTextEditor.document.uri.fsPath.toLowerCase();
-    if (coverageByfile.has(file)) {
-      const coverage = coverageByfile.get(file);
+    if (coverageByFile.has(file)) {
+      const coverage = coverageByFile.get(file);
       if (coverage) {
         const { lines } = coverage;
 
@@ -109,9 +109,9 @@ export function activate(context: ExtensionContext) {
   }
 
   function recordFileCoverage(coverages: CoverageCollection) {
-    coverageByfile.clear();
+    coverageByFile.clear();
     for (const coverage of coverages) {
-      coverageByfile.set(coverage.file.toLowerCase(), coverage);
+      coverageByFile.set(coverage.file.toLowerCase(), coverage);
     }
     showStatus();
   }
