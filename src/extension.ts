@@ -25,7 +25,7 @@ export function activate(context: ExtensionContext) {
   const packageInfo = require(join(context.extensionPath, "package.json"));
   const diagnostics = languages.createDiagnosticCollection("coverage");
   const statusBar = window.createStatusBarItem();
-  const coverageByfile = new Map<string, Coverage>();
+  const coverageByFile = new Map<string, Coverage>();
 
   const config = workspace.getConfiguration("markiscodecoverage");
   const configSearchCriteria =
@@ -80,7 +80,7 @@ export function activate(context: ExtensionContext) {
     workspace.findFiles(searchPattern).then((files) => {
       for (const file of files) {
         parseLcov(file.fsPath).then((coverages) => {
-          recordFileCoverage(coverages);
+          recordFileCoverage(coverages, workspaceFolder.uri.fsPath);
           convertDiagnostics(coverages, workspaceFolder.uri.fsPath);
         });
       }
@@ -94,9 +94,9 @@ export function activate(context: ExtensionContext) {
       statusBar.hide();
       return;
     }
-    const file: string = activeTextEditor.document.uri.fsPath.toLowerCase();
-    if (coverageByfile.has(file)) {
-      const coverage = coverageByfile.get(file);
+    const file: string = activeTextEditor.document.uri.fsPath;
+    if (coverageByFile.has(file)) {
+      const coverage = coverageByFile.get(file);
       if (coverage) {
         const { lines } = coverage;
 
@@ -108,10 +108,18 @@ export function activate(context: ExtensionContext) {
     }
   }
 
-  function recordFileCoverage(coverages: CoverageCollection) {
-    coverageByfile.clear();
+  function recordFileCoverage(
+    coverages: CoverageCollection,
+    workspaceFolder: string | undefined
+  ) {
+    coverageByFile.clear();
     for (const coverage of coverages) {
-      coverageByfile.set(coverage.file.toLowerCase(), coverage);
+      const fileName =
+        !isAbsolute(coverage.file) && workspaceFolder
+          ? join(workspaceFolder, coverage.file)
+          : coverage.file;
+
+      coverageByFile.set(fileName, coverage);
     }
     showStatus();
   }
