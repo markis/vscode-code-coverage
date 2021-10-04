@@ -1,4 +1,4 @@
-import { join, isAbsolute } from "path";
+import { isAbsolute, join } from "path";
 import {
   Diagnostic,
   DiagnosticSeverity,
@@ -8,7 +8,7 @@ import {
   Uri,
   window,
   workspace,
-  WorkspaceFolder
+  WorkspaceFolder,
 } from "vscode";
 import {
   Coverage,
