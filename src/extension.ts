@@ -151,18 +151,18 @@ export function activate(context: ExtensionContext) {
 
   function convertLinesToDiagnostics(details: LineCoverageInfo[]) {
     const diagnosticsForFiles: Diagnostic[] = [];
-    for (const detail of details) {
-      if (detail.hit === 0) {
-        diagnosticsForFiles.push(
-          new Diagnostic(
-            new Range(
-              new Position(detail.line - 1, 0),
-              new Position(detail.line - 1, Number.MAX_VALUE)
-            ),
-            `[${packageInfo.name}] line not covered`,
-            DiagnosticSeverity.Information
-          )
-        );
+    const activeTextEditor = window.activeTextEditor;
+    if (activeTextEditor) {
+      for (const detail of details) {
+        if (detail.hit === 0) {
+          diagnosticsForFiles.push(
+            new Diagnostic(
+              activeTextEditor.document.lineAt(detail.line - 1).range,
+              `[${packageInfo.name}] line not covered`,
+              DiagnosticSeverity.Information
+            )
+          );
+        }
       }
     }
     return diagnosticsForFiles;
