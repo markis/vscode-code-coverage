@@ -4,13 +4,11 @@ import {
   DiagnosticSeverity,
   ExtensionContext,
   languages,
-  Position,
-  Range,
-  Uri,
   RelativePattern,
-  workspace,
+  Uri,
   window,
-  WorkspaceFolder,
+  workspace,
+  WorkspaceFolder
 } from "vscode";
 import {
   Coverage,
