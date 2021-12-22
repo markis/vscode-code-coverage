@@ -1,5 +1,6 @@
 import { isAbsolute, join } from "path";
 import {
+  commands,
   Diagnostic,
   DiagnosticSeverity,
   ExtensionContext,
@@ -21,11 +22,26 @@ import { parse as parseLcov } from "./parse-lcov";
 
 const DEFAULT_SEARCH_CRITERIA = "coverage/lcov*.info";
 
+export let onCommand: (cmd: string) => void = noop;
+
+export function deactivate() {
+  onCommand = noop;
+}
+
 export async function activate(context: ExtensionContext) {
   const packageInfo = require(join(context.extensionPath, "package.json"));
   const diagnostics = languages.createDiagnosticCollection("coverage");
   const statusBar = window.createStatusBarItem();
+  const hideCommand = commands.registerCommand(
+    `${packageInfo.name}.hide`,
+    onHideCoverage
+  );
+  const showCommand = commands.registerCommand(
+    `${packageInfo.name}.show`,
+    onShowCoverage
+  );
   const coverageByFile = new Map<string, Coverage>();
+  let showCoverage = true;
 
   const config = workspace.getConfiguration("markiscodecoverage");
   const configSearchCriteria =
@@ -47,7 +63,7 @@ export async function activate(context: ExtensionContext) {
     }
   }
 
-  context.subscriptions.push(diagnostics, statusBar);
+  context.subscriptions.push(diagnostics, statusBar, showCommand, hideCommand);
 
   // Update status bar on changes to any open file
   workspace.onDidChangeTextDocument((e) => {
@@ -67,8 +83,31 @@ export async function activate(context: ExtensionContext) {
   });
 
   // Run the main routine at activation time as well
-  if (workspaceFolders) {
-    await Promise.all(workspaceFolders.map(findDiagnostics));
+  await findDiagnosticsInWorkspace();
+
+  onCommand = (cmd: string) => {
+    switch (cmd) {
+      case `${packageInfo.name}.hide`:
+        return onHideCoverage();
+      case `${packageInfo.name}.show`:
+        return onShowCoverage();
+    }
+  };
+
+  function onHideCoverage() {
+    showCoverage = false;
+    diagnostics.clear();
+  }
+
+  function onShowCoverage() {
+    showCoverage = true;
+    findDiagnosticsInWorkspace();
+  }
+
+  async function findDiagnosticsInWorkspace() {
+    if (workspaceFolders) {
+      await Promise.all(workspaceFolders.map(findDiagnostics));
+    }
   }
 
   // Finds VSCode diagnostics to display based on a coverage file specified by the search pattern in each workspace folder
@@ -149,6 +188,8 @@ export async function activate(context: ExtensionContext) {
   ) {
     const currentFile = window.activeTextEditor?.document.uri.fsPath;
     const diagnosticsForFiles: Diagnostic[] = [];
+    if (!showCoverage) return diagnosticsForFiles;
+
     for (const detail of details) {
       const line = detail.line - 1;
       if (detail.hit === 0) {
@@ -171,3 +212,5 @@ export async function activate(context: ExtensionContext) {
   // exports - accessible to tests
   return { statusBar };
 }
+
+function noop() {}

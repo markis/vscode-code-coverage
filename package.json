@@ -59,7 +59,21 @@
           "description": "Search location for lcov files"
         }
       }
-    }
+    },
+    "activationEvents": [
+      "onCommand:code-coverage.hide",
+      "onCommand:code-coverage.show"
+    ],
+    "commands": [
+      {
+        "command": "code-coverage.hide",
+        "title": "Hide Code Coverage"
+      },
+      {
+        "command": "code-coverage.show",
+        "title": "Show Code Coverage"
+      }
+    ]
   },
   "eslintConfig": {
     "env": {
