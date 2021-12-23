@@ -167,4 +167,7 @@ export async function activate(context: ExtensionContext) {
     }
     return diagnosticsForFiles;
   }
+
+  // exports - accessible to tests
+  return { statusBar };
 }
