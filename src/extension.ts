@@ -4,6 +4,8 @@ import {
   DiagnosticSeverity,
   ExtensionContext,
   languages,
+  Position,
+  Range,
   RelativePattern,
   Uri,
   window,
@@ -19,7 +21,7 @@ import { parse as parseLcov } from "./parse-lcov";
 
 const DEFAULT_SEARCH_CRITERIA = "coverage/lcov*.info";
 
-export function activate(context: ExtensionContext) {
+export async function activate(context: ExtensionContext) {
   const packageInfo = require(join(context.extensionPath, "package.json"));
   const diagnostics = languages.createDiagnosticCollection("coverage");
   const statusBar = window.createStatusBarItem();
@@ -66,23 +68,18 @@ export function activate(context: ExtensionContext) {
 
   // Run the main routine at activation time as well
   if (workspaceFolders) {
-    for (const folder of workspaceFolders) {
-      findDiagnostics(folder);
-    }
+    await Promise.all(workspaceFolders.map(findDiagnostics));
   }
 
   // Finds VSCode diagnostics to display based on a coverage file specified by the search pattern in each workspace folder
-  function findDiagnostics(workspaceFolder: WorkspaceFolder) {
+  async function findDiagnostics(workspaceFolder: WorkspaceFolder) {
     const searchPattern = new RelativePattern(workspaceFolder, searchCriteria);
-
-    workspace.findFiles(searchPattern).then((files) => {
-      for (const file of files) {
-        parseLcov(file.fsPath).then((coverages) => {
-          recordFileCoverage(coverages, workspaceFolder.uri.fsPath);
-          convertDiagnostics(coverages, workspaceFolder.uri.fsPath);
-        });
-      }
-    });
+    const files = await workspace.findFiles(searchPattern);
+    for (const file of files) {
+      const coverages = await parseLcov(file.fsPath);
+      recordFileCoverage(coverages, workspaceFolder.uri.fsPath);
+      convertDiagnostics(coverages, workspaceFolder.uri.fsPath);
+    }
   }
 
   // Show the coverage in the VSCode status bar at the bottom
@@ -108,14 +105,13 @@ export function activate(context: ExtensionContext) {
 
   function recordFileCoverage(
     coverages: CoverageCollection,
-    workspaceFolder: string | undefined
+    workspaceFolder: string
   ) {
     coverageByFile.clear();
     for (const coverage of coverages) {
-      const fileName =
-        !isAbsolute(coverage.file) && workspaceFolder
-          ? join(workspaceFolder, coverage.file)
-          : coverage.file;
+      const fileName = !isAbsolute(coverage.file)
+        ? join(workspaceFolder, coverage.file)
+        : coverage.file;
 
       coverageByFile.set(fileName, coverage);
     }
@@ -125,18 +121,18 @@ export function activate(context: ExtensionContext) {
   // Takes parsed coverage information and turns it into diagnostics
   function convertDiagnostics(
     coverages: CoverageCollection,
-    workspaceFolder: string | undefined
+    workspaceFolder: string
   ) {
     for (const coverage of coverages) {
       if (coverage && coverage.lines && coverage.lines.details) {
-        const diagnosticsForFiles: Diagnostic[] = convertLinesToDiagnostics(
-          coverage.lines.details
-        );
+        const fileName = !isAbsolute(coverage.file)
+          ? join(workspaceFolder, coverage.file)
+          : coverage.file;
 
-        const fileName =
-          !isAbsolute(coverage.file) && workspaceFolder
-            ? join(workspaceFolder, coverage.file)
-            : coverage.file;
+        const diagnosticsForFiles: Diagnostic[] = convertLinesToDiagnostics(
+          coverage.lines.details,
+          fileName
+        );
 
         if (diagnosticsForFiles.length > 0) {
           diagnostics.set(Uri.file(fileName), diagnosticsForFiles);
@@ -147,22 +143,31 @@ export function activate(context: ExtensionContext) {
     }
   }
 
-  function convertLinesToDiagnostics(details: LineCoverageInfo[]) {
+  function convertLinesToDiagnostics(
+    details: LineCoverageInfo[],
+    fileName: string
+  ) {
+    const currentFile = window.activeTextEditor?.document.uri.fsPath;
     const diagnosticsForFiles: Diagnostic[] = [];
-    const activeTextEditor = window.activeTextEditor;
-    if (activeTextEditor) {
-      for (const detail of details) {
-        if (detail.hit === 0) {
-          diagnosticsForFiles.push(
-            new Diagnostic(
-              activeTextEditor.document.lineAt(detail.line - 1).range,
-              `[${packageInfo.name}] line not covered`,
-              DiagnosticSeverity.Information
-            )
-          );
-        }
+    for (const detail of details) {
+      const line = detail.line - 1;
+      if (detail.hit === 0) {
+        const range =
+          (currentFile === fileName &&
+            window.activeTextEditor?.document.lineAt(line).range) ||
+          new Range(new Position(line, 0), new Position(line, 1000));
+        diagnosticsForFiles.push(
+          new Diagnostic(
+            range,
+            `[${packageInfo.name}] line not covered`,
+            DiagnosticSeverity.Information
+          )
+        );
       }
     }
     return diagnosticsForFiles;
   }
+
+  // exports - accessible to tests
+  return { statusBar };
 }
