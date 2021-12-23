@@ -2,7 +2,9 @@ import * as assert from 'assert';
 import { join } from 'path';
 import { commands, extensions, languages, StatusBarItem, Uri, window, workspace } from 'vscode';
 
-suite('code-coverage', () => {
+suite('code-coverage', function() {
+  this.timeout(30000);
+
   const exampleWorkspace = join(__dirname, '../../../', 'example');
   const exampleWorkspaceUri = Uri.file(exampleWorkspace);
   const exampleIndexUri = Uri.file(join(exampleWorkspace, 'index.ts'));
