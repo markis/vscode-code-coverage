@@ -162,6 +162,8 @@ export async function activate(context: ExtensionContext) {
     coverages: CoverageCollection,
     workspaceFolder: string
   ) {
+    if (!showCoverage) return; // do nothing
+
     for (const coverage of coverages) {
       if (coverage && coverage.lines && coverage.lines.details) {
         const fileName = !isAbsolute(coverage.file)
@@ -188,7 +190,6 @@ export async function activate(context: ExtensionContext) {
   ) {
     const currentFile = window.activeTextEditor?.document.uri.fsPath;
     const diagnosticsForFiles: Diagnostic[] = [];
-    if (!showCoverage) return diagnosticsForFiles;
 
     for (const detail of details) {
       const line = detail.line - 1;
