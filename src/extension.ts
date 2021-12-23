@@ -22,7 +22,7 @@ import { parse as parseLcov } from "./parse-lcov";
 
 const DEFAULT_SEARCH_CRITERIA = "coverage/lcov*.info";
 
-export let onCommand: (cmd: string) => void = noop;
+export let onCommand: (cmd: string) => Promise<void> = noop;
 
 export function deactivate() {
   onCommand = noop;
@@ -85,7 +85,7 @@ export async function activate(context: ExtensionContext) {
   // Run the main routine at activation time as well
   await findDiagnosticsInWorkspace();
 
-  onCommand = (cmd: string) => {
+  onCommand = async function onCommand(cmd: string) {
     switch (cmd) {
       case `${packageInfo.name}.hide`:
         return onHideCoverage();
@@ -94,14 +94,14 @@ export async function activate(context: ExtensionContext) {
     }
   };
 
-  function onHideCoverage() {
+  async function onHideCoverage() {
     showCoverage = false;
     diagnostics.clear();
   }
 
-  function onShowCoverage() {
+  async function onShowCoverage() {
     showCoverage = true;
-    findDiagnosticsInWorkspace();
+    await findDiagnosticsInWorkspace();
   }
 
   async function findDiagnosticsInWorkspace() {
@@ -211,7 +211,7 @@ export async function activate(context: ExtensionContext) {
   }
 
   // exports - accessible to tests
-  return { statusBar };
+  return { onCommand, statusBar };
 }
 
-function noop() {}
+async function noop() {}
