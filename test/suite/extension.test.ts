@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import * as assert from 'assert';
 import { join } from 'path';
 import { commands, languages, Uri, window, workspace } from 'vscode';
 
@@ -14,8 +14,8 @@ suite('code-coverage', function () {
     await window.showTextDocument(doc);
 
     const diagnostics = languages.getDiagnostics(doc.uri);
-    expect(diagnostics).to.have.length(1);
-    expect(diagnostics[0].range.start.line).to.be.equal(5);
+    assert.strictEqual(diagnostics.length, 1);
+    assert.strictEqual(diagnostics[0].range.start.line, 5);
 
     commands.executeCommand('workbench.action.closeActiveEditor');
   });
