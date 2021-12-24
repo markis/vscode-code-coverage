@@ -1,6 +1,6 @@
 import * as path from "path";
-import * as Mocha from "mocha";
-import * as glob from "glob";
+import Mocha from "mocha";
+import glob from "glob";
 
 export function run(
   testsRoot: string,
@@ -8,9 +8,9 @@ export function run(
 ): void {
   // Create the mocha test
   const mocha = new Mocha({
+    color: true,
     ui: "tdd",
   });
-  mocha.useColors(true);
 
   glob("**/**.test.js", { cwd: testsRoot }, (err, files) => {
     if (err) {
