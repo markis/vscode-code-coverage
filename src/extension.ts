@@ -190,7 +190,6 @@ export async function activate(context: ExtensionContext) {
   ) {
     const currentFile = window.activeTextEditor?.document.uri.fsPath;
     const diagnosticsForFiles: Diagnostic[] = [];
-
     for (const detail of details) {
       const line = detail.line - 1;
       if (detail.hit === 0) {
