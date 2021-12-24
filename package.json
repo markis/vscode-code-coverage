@@ -2,7 +2,7 @@
   "name": "code-coverage",
   "displayName": "Code Coverage",
   "description": "Highlight lines not covered by unit tests.",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "publisher": "markis",
   "icon": "images/icon.png",
   "license": "MIT",
