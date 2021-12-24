@@ -24,7 +24,7 @@ const DEFAULT_SEARCH_CRITERIA = "coverage/lcov*.info";
 
 export let onCommand: (cmd: string) => Promise<void> = noop;
 
-export function deactivate() {
+export async function deactivate() {
   onCommand = noop;
 }
 
