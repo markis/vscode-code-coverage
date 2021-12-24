@@ -3,12 +3,12 @@ import { join } from 'path';
 import { commands, extensions, languages, StatusBarItem, Uri, window, workspace, Extension } from 'vscode';
 
 suite('code-coverage', function() {
+  this.timeout(10000);
   const exampleWorkspace = join(__dirname, '../../../', 'example');
   const exampleWorkspaceUri = Uri.file(exampleWorkspace);
   const exampleIndexUri = Uri.file(join(exampleWorkspace, 'index.ts'));
   let extension: Extension<any> | undefined;
   let onCommand: (cmd: string) => Promise<void> | undefined;
-  
 
   setup(async () => {
     // Open the example workspace and open the example index file

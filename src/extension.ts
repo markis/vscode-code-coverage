@@ -188,14 +188,14 @@ export async function activate(context: ExtensionContext) {
     details: LineCoverageInfo[],
     fileName: string
   ) {
-    const currentFile = window.activeTextEditor?.document.uri.fsPath;
+    const doc = window.activeTextEditor?.document;
+    const currentFile = doc?.uri.fsPath;
     const diagnosticsForFiles: Diagnostic[] = [];
     for (const detail of details) {
       const line = detail.line - 1;
       if (detail.hit === 0) {
         const range =
-          (currentFile === fileName &&
-            window.activeTextEditor?.document.lineAt(line).range) ||
+          (currentFile === fileName && doc?.lineAt(line).range) ||
           new Range(new Position(line, 0), new Position(line, 1000));
         diagnosticsForFiles.push(
           new Diagnostic(
