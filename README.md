@@ -1,16 +1,15 @@
 # Code Coverage
 
-Code coverage will put squiggly lines under functions, lines or code branches that are not covered by unit tests. And will list the uncovered lines under the problems window.
+Code coverage will highlight lines of code that are not covered by tests. It will list the uncovered lines under the problems window. And it conveniently shows the coverage ratio in the status bar.
 
 ![Demo](images/demo.png)
 
 ## Features
 
-* Simple and easy to use
 * Small memory and processor footprint
 * Multiple lcov file handler
 
 ## Setup
 
-* Ensure your project has generated lcov file(s) using your language's code coverage tools.
-* Update the `markiscodecoverage.searchCriteria` setting, default: `coverage/lcov*.info`
+* Generate `.lcov` coverage files using your language's code coverage tools
+* Set the coverage location setting `markiscodecoverage.searchCriteria`, default: `coverage/lcov*.info`

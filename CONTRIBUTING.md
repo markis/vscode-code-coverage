@@ -5,14 +5,21 @@ The `.vscode` folder contains launch configurations so you can test the extensio
 ### Get started
 
 - Clone the repo
-- `yarn install`
+- Install dependencies - `npm install`
+- Run tests - `npm test`
 - Open VSCode and run the `Launch Extension` target
 
 ### Tests
 
-Tests need to be run by the VSCode extension host, so they are provided by a launch configuration as well.
+#### VSCode extension host
+
+Tests need to be run by the VSCode extension host, there are launch configurations provided to launch the extension in debug mode and test mode.
 
 They then run as a Mocha test suite in the extension host, so their output isn't usually visible.
+
+#### Automated tests
+
+Running `npm test` will launch VSCode and run the integration tests against the running instance.
 
 ### Design considerations
 
