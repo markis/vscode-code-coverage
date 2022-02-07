@@ -13,3 +13,10 @@ Code coverage will highlight lines of code that are not covered by tests. It wil
 
 * Generate `.lcov` coverage files using your language's code coverage tools
 * Set the coverage location setting `markiscodecoverage.searchCriteria`, default: `coverage/lcov*.info`
+
+## Commands
+
+There are commands to hide and show lines of coverage. Also, it's possible to map commands to [key bindings](https://code.visualstudio.com/docs/getstarted/keybindings) in vscode.
+
+* `code-coverage.hide` will hide the code coverage
+* `code-coverage.show` will show the code coverage
