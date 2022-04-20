@@ -46,6 +46,7 @@
     "onLanguage:rust",
     "onLanguage:typescript",
     "onLanguage:typescriptreact",
+    "onLanguage:shellscript",
     "onLanguage:vb"
   ],
   "main": "./out/src/extension.js",
