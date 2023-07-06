@@ -41,9 +41,10 @@ export async function activate(context: ExtensionContext) {
     onShowCoverage
   );
   const coverageByFile = new Map<string, Coverage>();
-  let showCoverage = true;
 
   const config = workspace.getConfiguration("markiscodecoverage");
+  let showCoverage =
+    !config.has("enableOnStartup") || config.get("enableOnStartup");
   const configSearchCriteria =
     config.has("searchCriteria") && config.get("searchCriteria");
   const searchCriteria =

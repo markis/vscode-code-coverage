@@ -58,6 +58,11 @@
           "type": "string",
           "default": "coverage/lcov*.info",
           "description": "Search location for lcov files"
+        },
+        "markiscodecoverage.enableOnStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable code coverage on startup"
         }
       }
     },
