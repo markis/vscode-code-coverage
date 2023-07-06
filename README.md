@@ -13,6 +13,7 @@ Code coverage will highlight lines of code that are not covered by tests. It wil
 
 * Generate `.lcov` coverage files using your language's code coverage tools
 * Set the coverage location setting `markiscodecoverage.searchCriteria`, default: `coverage/lcov*.info`
+* Optionally set the default behavior with `markiscodecoverage.enableOnStartup`, default: `true`
 
 ## Commands
 
