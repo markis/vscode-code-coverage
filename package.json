@@ -1,7 +1,7 @@
 {
   "name": "code-coverage",
   "displayName": "Code Coverage",
-  "description": "Highlight lines not covered by unit tests.",
+  "description": "Boost test coverage and reliability with this easy-to-use code coverage analysis tool",
   "version": "1.9.1",
   "publisher": "markis",
   "icon": "images/icon.png",
@@ -17,8 +17,12 @@
     "Testing"
   ],
   "keywords": [
+    "analysis",
     "code coverage",
+    "quality assurance",
     "lcov",
+    "productivity",
+    "test coverage",
     "unit test"
   ],
   "activationEvents": [
