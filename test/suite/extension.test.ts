@@ -33,12 +33,25 @@ suite("code-coverage", function () {
     commands.executeCommand("workbench.action.closeActiveEditor");
   });
 
+  this.afterEach = () => {
+    extension?.exports.coverageDecorations.clearAllDecorations();
+    return this;
+  };
+
   test("check diagnostics exist", async () => {
     // Check to see if the diagnostics exist for the example file
     // there should only be one line not covered, and so only one diagnostic should exist
     const diagnostics = languages.getDiagnostics(exampleIndexUri);
     assert.strictEqual(diagnostics.length, 1);
     assert.strictEqual(diagnostics[0].range.start.line, 5);
+  });
+
+  test("check decorations can be generated from diagnostics and retrieved", async () => {
+    const diagnostics = languages.getDiagnostics(exampleIndexUri);
+    extension?.exports.coverageDecorations.addDecorationsForFile(exampleIndexUri, diagnostics);
+    const decorationSpec = extension?.exports.coverageDecorations.getDecorationsForFile(exampleIndexUri);
+    assert.notEqual(decorationSpec, undefined);
+    assert.strictEqual(decorationSpec.decorationOptions.length, 1);
   });
 
   test("check status bar", async () => {

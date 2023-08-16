@@ -19,6 +19,7 @@ import {
   LineCoverageInfo,
 } from "./coverage-info";
 import { parse as parseLcov } from "./parse-lcov";
+import { CoverageDecorations } from "./coverage-decorations";
 
 const DEFAULT_SEARCH_CRITERIA = "coverage/lcov*.info";
 
@@ -31,6 +32,7 @@ export async function deactivate() {
 export async function activate(context: ExtensionContext) {
   const packageInfo = require(join(context.extensionPath, "package.json"));
   const diagnostics = languages.createDiagnosticCollection("coverage");
+  const coverageDecorations = new CoverageDecorations();
   const statusBar = window.createStatusBarItem();
   const hideCommand = commands.registerCommand(
     `${packageInfo.name}.hide`,
@@ -53,6 +55,10 @@ export async function activate(context: ExtensionContext) {
       : DEFAULT_SEARCH_CRITERIA;
   const workspaceFolders = workspace.workspaceFolders;
 
+  // When a workspace is first opened and already has an open document, the setDecoration method has to be called twice.
+  // If it is isn't, the user will have to tab between documents before the decorations will render.
+  let setDecorationsCounter = 0;
+
   // Register watchers for file changes on coverage files to re-run the coverage parser
   if (workspaceFolders) {
     for (const folder of workspaceFolders) {
@@ -64,23 +70,25 @@ export async function activate(context: ExtensionContext) {
     }
   }
 
-  context.subscriptions.push(diagnostics, statusBar, showCommand, hideCommand);
+  context.subscriptions.push(diagnostics, coverageDecorations, statusBar, showCommand, hideCommand);
 
   // Update status bar on changes to any open file
   workspace.onDidChangeTextDocument((e) => {
     if (e) {
       diagnostics.delete(e.document.uri);
-      showStatus();
+      coverageDecorations.removeDecorationsForFile(e.document.uri);
+      showStatusAndDecorations();
     }
   });
   workspace.onDidOpenTextDocument(() => {
-    showStatus();
+    showStatusAndDecorations();
   });
   workspace.onDidCloseTextDocument(() => {
-    showStatus();
+    showStatusAndDecorations();
   });
   window.onDidChangeActiveTextEditor(() => {
-    showStatus();
+    setDecorationsCounter = 0;
+    showStatusAndDecorations();
   });
 
   // Run the main routine at activation time as well
@@ -98,11 +106,26 @@ export async function activate(context: ExtensionContext) {
   async function onHideCoverage() {
     showCoverage = false;
     diagnostics.clear();
+    coverageDecorations.clearAllDecorations();
+    // Disable rendering of decorations in editor view
+    window.activeTextEditor?.setDecorations(coverageDecorations.decorationType, []);
   }
 
   async function onShowCoverage() {
     showCoverage = true;
     await findDiagnosticsInWorkspace();
+
+    // This ensures the decorations will show up again when switching back and forth between Show / Hide.
+    const activeTextEditor = window.activeTextEditor;
+    if (activeTextEditor !== undefined) {
+      const decorations = coverageDecorations.getDecorationsForFile(activeTextEditor.document.uri);
+
+      if (decorations !== undefined) {
+        const { decorationType, decorationOptions } = decorations;
+        // Render decorations in editor view
+        activeTextEditor.setDecorations(decorationType, decorationOptions); 
+      }
+    }
   }
 
   async function findDiagnosticsInWorkspace() {
@@ -123,7 +146,7 @@ export async function activate(context: ExtensionContext) {
   }
 
   // Show the coverage in the VSCode status bar at the bottom
-  function showStatus() {
+  function showStatusAndDecorations() {
     const activeTextEditor = window.activeTextEditor;
     if (!activeTextEditor) {
       statusBar.hide();
@@ -134,7 +157,22 @@ export async function activate(context: ExtensionContext) {
       const coverage = coverageByFile.get(file);
       if (coverage) {
         const { lines } = coverage;
+        // Only want to call setDecorations at most 2 times.
+        if (setDecorationsCounter < 2 ) {
+          let decorations = coverageDecorations.getDecorationsForFile(activeTextEditor.document.uri);
 
+          // If VSCode launches the workspace with already opened document, this ensures the decorations will appear along with the diagnostics.
+          if (decorations === undefined) {
+            coverageDecorations.addDecorationsForFile(activeTextEditor.document.uri, diagnostics.get(activeTextEditor.document.uri) ?? []);
+            decorations = coverageDecorations.getDecorationsForFile(activeTextEditor.document.uri);
+          }
+
+          if (decorations !== undefined) {
+            const { decorationType, decorationOptions } = decorations;
+            activeTextEditor.setDecorations(decorationType, decorationOptions);
+            setDecorationsCounter++;
+          }
+        }
         statusBar.text = `Coverage: ${lines.hit}/${lines.found} lines`;
         statusBar.show();
       }
@@ -155,7 +193,7 @@ export async function activate(context: ExtensionContext) {
 
       coverageByFile.set(fileName, coverage);
     }
-    showStatus();
+    showStatusAndDecorations();
   }
 
   // Takes parsed coverage information and turns it into diagnostics
@@ -177,9 +215,13 @@ export async function activate(context: ExtensionContext) {
         );
 
         if (diagnosticsForFiles.length > 0) {
-          diagnostics.set(Uri.file(fileName), diagnosticsForFiles);
+          const file = Uri.file(fileName);
+          diagnostics.set(file, diagnosticsForFiles);
+          coverageDecorations.addDecorationsForFile(file, diagnosticsForFiles);
         } else {
+          const file = Uri.file(fileName);
           diagnostics.delete(Uri.file(fileName));
+          coverageDecorations.removeDecorationsForFile(file);
         }
       }
     }
@@ -211,7 +253,7 @@ export async function activate(context: ExtensionContext) {
   }
 
   // exports - accessible to tests
-  return { onCommand, statusBar };
+  return { onCommand, statusBar, coverageDecorations };
 }
 
 async function noop() {}
