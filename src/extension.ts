@@ -34,11 +34,11 @@ export async function activate(context: ExtensionContext) {
   const statusBar = window.createStatusBarItem();
   const hideCommand = commands.registerCommand(
     `${packageInfo.name}.hide`,
-    onHideCoverage
+    onHideCoverage,
   );
   const showCommand = commands.registerCommand(
     `${packageInfo.name}.show`,
-    onShowCoverage
+    onShowCoverage,
   );
   const coverageByFile = new Map<string, Coverage>();
 
@@ -145,7 +145,7 @@ export async function activate(context: ExtensionContext) {
 
   function recordFileCoverage(
     coverages: CoverageCollection,
-    workspaceFolder: string
+    workspaceFolder: string,
   ) {
     coverageByFile.clear();
     for (const coverage of coverages) {
@@ -161,7 +161,7 @@ export async function activate(context: ExtensionContext) {
   // Takes parsed coverage information and turns it into diagnostics
   function convertDiagnostics(
     coverages: CoverageCollection,
-    workspaceFolder: string
+    workspaceFolder: string,
   ) {
     if (!showCoverage) return; // do nothing
 
@@ -173,7 +173,7 @@ export async function activate(context: ExtensionContext) {
 
         const diagnosticsForFiles: Diagnostic[] = convertLinesToDiagnostics(
           coverage.lines.details,
-          fileName
+          fileName,
         );
 
         if (diagnosticsForFiles.length > 0) {
@@ -187,7 +187,7 @@ export async function activate(context: ExtensionContext) {
 
   function convertLinesToDiagnostics(
     details: LineCoverageInfo[],
-    fileName: string
+    fileName: string,
   ) {
     const doc = window.activeTextEditor?.document;
     const currentFile = doc?.uri.fsPath;
@@ -202,8 +202,8 @@ export async function activate(context: ExtensionContext) {
           new Diagnostic(
             range,
             `[${packageInfo.name}] line not covered`,
-            DiagnosticSeverity.Information
-          )
+            DiagnosticSeverity.Information,
+          ),
         );
       }
     }
