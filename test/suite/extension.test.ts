@@ -48,8 +48,14 @@ suite("code-coverage", function () {
 
   test("check decorations can be generated from diagnostics and retrieved", async () => {
     const diagnostics = languages.getDiagnostics(exampleIndexUri);
-    extension?.exports.coverageDecorations.addDecorationsForFile(exampleIndexUri, diagnostics);
-    const decorationSpec = extension?.exports.coverageDecorations.getDecorationsForFile(exampleIndexUri);
+    extension?.exports.coverageDecorations.addDecorationsForFile(
+      exampleIndexUri,
+      diagnostics,
+    );
+    const decorationSpec =
+      extension?.exports.coverageDecorations.getDecorationsForFile(
+        exampleIndexUri,
+      );
     assert.notEqual(decorationSpec, undefined);
     assert.strictEqual(decorationSpec.decorationOptions.length, 1);
   });

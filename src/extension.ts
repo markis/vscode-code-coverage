@@ -70,7 +70,13 @@ export async function activate(context: ExtensionContext) {
     }
   }
 
-  context.subscriptions.push(diagnostics, coverageDecorations, statusBar, showCommand, hideCommand);
+  context.subscriptions.push(
+    diagnostics,
+    coverageDecorations,
+    statusBar,
+    showCommand,
+    hideCommand,
+  );
 
   // Update status bar on changes to any open file
   workspace.onDidChangeTextDocument((e) => {
@@ -108,7 +114,10 @@ export async function activate(context: ExtensionContext) {
     diagnostics.clear();
     coverageDecorations.clearAllDecorations();
     // Disable rendering of decorations in editor view
-    window.activeTextEditor?.setDecorations(coverageDecorations.decorationType, []);
+    window.activeTextEditor?.setDecorations(
+      coverageDecorations.decorationType,
+      [],
+    );
   }
 
   async function onShowCoverage() {
@@ -118,12 +127,14 @@ export async function activate(context: ExtensionContext) {
     // This ensures the decorations will show up again when switching back and forth between Show / Hide.
     const activeTextEditor = window.activeTextEditor;
     if (activeTextEditor !== undefined) {
-      const decorations = coverageDecorations.getDecorationsForFile(activeTextEditor.document.uri);
+      const decorations = coverageDecorations.getDecorationsForFile(
+        activeTextEditor.document.uri,
+      );
 
       if (decorations !== undefined) {
         const { decorationType, decorationOptions } = decorations;
         // Render decorations in editor view
-        activeTextEditor.setDecorations(decorationType, decorationOptions); 
+        activeTextEditor.setDecorations(decorationType, decorationOptions);
       }
     }
   }
@@ -158,13 +169,20 @@ export async function activate(context: ExtensionContext) {
       if (coverage) {
         const { lines } = coverage;
         // Only want to call setDecorations at most 2 times.
-        if (setDecorationsCounter < 2 ) {
-          let decorations = coverageDecorations.getDecorationsForFile(activeTextEditor.document.uri);
+        if (setDecorationsCounter < 2) {
+          let decorations = coverageDecorations.getDecorationsForFile(
+            activeTextEditor.document.uri,
+          );
 
           // If VSCode launches the workspace with already opened document, this ensures the decorations will appear along with the diagnostics.
           if (decorations === undefined) {
-            coverageDecorations.addDecorationsForFile(activeTextEditor.document.uri, diagnostics.get(activeTextEditor.document.uri) ?? []);
-            decorations = coverageDecorations.getDecorationsForFile(activeTextEditor.document.uri);
+            coverageDecorations.addDecorationsForFile(
+              activeTextEditor.document.uri,
+              diagnostics.get(activeTextEditor.document.uri) ?? [],
+            );
+            decorations = coverageDecorations.getDecorationsForFile(
+              activeTextEditor.document.uri,
+            );
           }
 
           if (decorations !== undefined) {
