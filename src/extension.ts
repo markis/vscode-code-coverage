@@ -238,7 +238,7 @@ export async function activate(context: ExtensionContext) {
           coverageDecorations.addDecorationsForFile(file, diagnosticsForFiles);
         } else {
           const file = Uri.file(fileName);
-          diagnostics.delete(Uri.file(fileName));
+          diagnostics.delete(file);
           coverageDecorations.removeDecorationsForFile(file);
         }
       }
