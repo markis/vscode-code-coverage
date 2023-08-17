@@ -83,6 +83,26 @@
         "command": "code-coverage.show",
         "title": "Show Code Coverage"
       }
+    ],
+    "colors": [
+      {
+        "id": "markiscodecoverage.colorUncoveredLineRuler",
+        "description": "Decoration color for uncovered lines",
+        "defaults": {
+          "dark": "#FF7F27BF",
+          "light": "#FF7F27FF",
+          "highContrast": "#FF7F27FF"
+        }
+      },
+      {
+        "id": "markiscodecoverage.colorUncoveredLineText",
+        "description": "Decoration color for uncovered lines",
+        "defaults": {
+          "dark": "#FF7F2750",
+          "light": "#FF7F2750",
+          "highContrast": "#FF7F2750"
+        }
+      }
     ]
   },
   "eslintConfig": {
