@@ -183,9 +183,7 @@ export async function activate(context: ExtensionContext) {
             decorations = coverageDecorations.getDecorationsForFile(
               activeTextEditor.document.uri,
             );
-          }
-
-          if (decorations !== undefined) {
+          } else {
             const { decorationType, decorationOptions } = decorations;
             activeTextEditor.setDecorations(decorationType, decorationOptions);
             setDecorationsCounter++;
