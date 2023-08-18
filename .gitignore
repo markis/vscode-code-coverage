@@ -1,4 +1,5 @@
 .vscode-test
+example/.vscode
 example/.nyc_output
 example/coverage
 example/node_modules

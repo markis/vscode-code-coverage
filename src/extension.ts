@@ -18,10 +18,14 @@ import {
   CoverageCollection,
   LineCoverageInfo,
 } from "./coverage-info";
+import {
+  CONFIG_OPTION_SEARCH_CRITERIA,
+  CONFIG_SECTION_NAME,
+  ExtensionConfiguration,
+} from "./extension-configuration";
 import { parse as parseLcov } from "./parse-lcov";
 import { CoverageDecorations } from "./coverage-decorations";
-
-const DEFAULT_SEARCH_CRITERIA = "coverage/lcov*.info";
+import { FileCoverageInfoProvider } from "./file-coverage-info-provider";
 
 export let onCommand: (cmd: string) => Promise<void> = noop;
 
@@ -44,38 +48,40 @@ export async function activate(context: ExtensionContext) {
   );
   const coverageByFile = new Map<string, Coverage>();
 
-  const config = workspace.getConfiguration("markiscodecoverage");
-  let showCoverage =
-    !config.has("enableOnStartup") || config.get("enableOnStartup");
-  const configSearchCriteria =
-    config.has("searchCriteria") && config.get("searchCriteria");
-  const searchCriteria =
-    configSearchCriteria && typeof configSearchCriteria === "string"
-      ? configSearchCriteria
-      : DEFAULT_SEARCH_CRITERIA;
+  const extensionConfiguration = new ExtensionConfiguration(
+    workspace.getConfiguration(CONFIG_SECTION_NAME),
+  );
   const workspaceFolders = workspace.workspaceFolders;
 
   // When a workspace is first opened and already has an open document, the setDecoration method has to be called twice.
   // If it is isn't, the user will have to tab between documents before the decorations will render.
   let setDecorationsCounter = 0;
 
-  // Register watchers for file changes on coverage files to re-run the coverage parser
-  if (workspaceFolders) {
-    for (const folder of workspaceFolders) {
-      const pattern = new RelativePattern(folder.uri.fsPath, searchCriteria);
-      const watcher = workspace.createFileSystemWatcher(pattern);
-      watcher.onDidChange(() => findDiagnostics(folder));
-      watcher.onDidCreate(() => findDiagnostics(folder));
-      watcher.onDidDelete(() => findDiagnostics(folder));
+  // Register watchers and listen if the coverage file directory has changed
+  registerWatchers();
+  extensionConfiguration.onConfigOptionUpdated((e) => {
+    if (e && e === CONFIG_OPTION_SEARCH_CRITERIA) {
+      registerWatchers();
     }
-  }
+  });
+
+  // Create and Register the file decoration provider
+  const fileCoverageInfoProvider = new FileCoverageInfoProvider(
+    extensionConfiguration,
+    coverageByFile,
+  );
+  const fileCoverageInfoProviderRegistration =
+    window.registerFileDecorationProvider(fileCoverageInfoProvider);
 
   context.subscriptions.push(
+    extensionConfiguration,
     diagnostics,
     coverageDecorations,
     statusBar,
     showCommand,
     hideCommand,
+    fileCoverageInfoProviderRegistration,
+    fileCoverageInfoProvider,
   );
 
   // Update status bar on changes to any open file
@@ -92,6 +98,14 @@ export async function activate(context: ExtensionContext) {
   workspace.onDidCloseTextDocument(() => {
     showStatusAndDecorations();
   });
+  workspace.onDidChangeConfiguration((e) => {
+    if (e) {
+      extensionConfiguration.dispatchConfigUpdate(
+        e,
+        workspace.getConfiguration(CONFIG_SECTION_NAME),
+      );
+    }
+  });
   window.onDidChangeActiveTextEditor(() => {
     setDecorationsCounter = 0;
     showStatusAndDecorations();
@@ -99,6 +113,22 @@ export async function activate(context: ExtensionContext) {
 
   // Run the main routine at activation time as well
   await findDiagnosticsInWorkspace();
+
+  // Register watchers for file changes on coverage files to re-run the coverage parser
+  function registerWatchers() {
+    if (workspaceFolders) {
+      for (const folder of workspaceFolders) {
+        const pattern = new RelativePattern(
+          folder.uri.fsPath,
+          extensionConfiguration.searchCriteria,
+        );
+        const watcher = workspace.createFileSystemWatcher(pattern);
+        watcher.onDidChange(() => findDiagnostics(folder));
+        watcher.onDidCreate(() => findDiagnostics(folder));
+        watcher.onDidDelete(() => findDiagnostics(folder));
+      }
+    }
+  }
 
   onCommand = async function onCommand(cmd: string) {
     switch (cmd) {
@@ -110,7 +140,11 @@ export async function activate(context: ExtensionContext) {
   };
 
   async function onHideCoverage() {
-    showCoverage = false;
+    extensionConfiguration.showCoverage = false;
+    fileCoverageInfoProvider.showFileDecorations = false;
+    fileCoverageInfoProvider.changeFileDecorations(
+      Array.from(coverageByFile.keys()),
+    );
     diagnostics.clear();
     coverageDecorations.clearAllDecorations();
     // Disable rendering of decorations in editor view
@@ -121,7 +155,8 @@ export async function activate(context: ExtensionContext) {
   }
 
   async function onShowCoverage() {
-    showCoverage = true;
+    extensionConfiguration.showCoverage = true;
+    fileCoverageInfoProvider.showFileDecorations = true;
     await findDiagnosticsInWorkspace();
 
     // This ensures the decorations will show up again when switching back and forth between Show / Hide.
@@ -142,12 +177,18 @@ export async function activate(context: ExtensionContext) {
   async function findDiagnosticsInWorkspace() {
     if (workspaceFolders) {
       await Promise.all(workspaceFolders.map(findDiagnostics));
+      fileCoverageInfoProvider.changeFileDecorations(
+        Array.from(coverageByFile.keys()),
+      );
     }
   }
 
   // Finds VSCode diagnostics to display based on a coverage file specified by the search pattern in each workspace folder
   async function findDiagnostics(workspaceFolder: WorkspaceFolder) {
-    const searchPattern = new RelativePattern(workspaceFolder, searchCriteria);
+    const searchPattern = new RelativePattern(
+      workspaceFolder,
+      extensionConfiguration.searchCriteria,
+    );
     const files = await workspace.findFiles(searchPattern);
     for (const file of files) {
       const coverages = await parseLcov(file.fsPath);
@@ -217,7 +258,7 @@ export async function activate(context: ExtensionContext) {
     coverages: CoverageCollection,
     workspaceFolder: string,
   ) {
-    if (!showCoverage) return; // do nothing
+    if (!extensionConfiguration.showCoverage) return; // do nothing
 
     for (const coverage of coverages) {
       if (coverage && coverage.lines && coverage.lines.details) {
@@ -269,7 +310,13 @@ export async function activate(context: ExtensionContext) {
   }
 
   // exports - accessible to tests
-  return { onCommand, statusBar, coverageDecorations };
+  return {
+    onCommand,
+    statusBar,
+    coverageDecorations,
+    fileCoverageInfoProvider,
+    extensionConfiguration,
+  };
 }
 
 async function noop() {}

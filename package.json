@@ -63,6 +63,13 @@
           "default": "coverage/lcov*.info",
           "description": "Search location for lcov files"
         },
+        "markiscodecoverage.coverageThreshold": {
+          "type": "number",
+          "default": 80,
+          "minimum": 0,
+          "maximum": 100,
+          "description": "The desired code coverage percentage ratio per-file"
+        },
         "markiscodecoverage.enableOnStartup": {
           "type": "boolean",
           "default": true,
@@ -101,6 +108,15 @@
           "dark": "#FF7F2750",
           "light": "#FF7F2750",
           "highContrast": "#FF7F2750"
+        }
+      },
+      {
+        "id": "markiscodecoverage.insufficientCoverageForeground",
+        "description": "Decoration color for files with insufficient coverage",
+        "defaults": {
+          "light": "#AD0707FF",
+          "dark": "#C74E39FF",
+          "highContrast": "#C74E39FF"
         }
       }
     ]
