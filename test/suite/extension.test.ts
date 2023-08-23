@@ -29,6 +29,12 @@ suite("code-coverage", function () {
   });
 
   teardown(async () => {
+    await workspace
+      .getConfiguration("markiscodecoverage")
+      .update("searchCriteria", undefined);
+    await workspace
+      .getConfiguration("markiscodecoverage")
+      .update("coverageThreshold", undefined);
     // All done, close the editor
     commands.executeCommand("workbench.action.closeActiveEditor");
   });
@@ -81,5 +87,67 @@ suite("code-coverage", function () {
     // Show coverage
     await onCommand("code-coverage.show");
     assert.strictEqual(languages.getDiagnostics(exampleIndexUri).length, 1);
+  });
+
+  test("test can update the coverage after updating showCriteria config value", async () => {
+    await workspace
+      .getConfiguration("markiscodecoverage")
+      .update("searchCriteria", "lcov*.info");
+    await onCommand("code-coverage.hide");
+    await onCommand("code-coverage.show");
+    let diagnostics = languages.getDiagnostics(exampleIndexUri);
+    assert.strictEqual(diagnostics.length, 0);
+    await workspace
+      .getConfiguration("markiscodecoverage")
+      .update("searchCriteria", "coverage/lcov*.info");
+    await onCommand("code-coverage.hide");
+    await onCommand("code-coverage.show");
+    diagnostics = languages.getDiagnostics(exampleIndexUri);
+    assert.strictEqual(diagnostics.length, 1);
+  });
+
+  test("test can update the coverage threshold value after updating coverageThreshold config value", async () => {
+    const initialValue =
+      extension?.exports.extensionConfiguration.coverageThreshold;
+    await workspace
+      .getConfiguration("markiscodecoverage")
+      .update("coverageThreshold", 25);
+    assert.notEqual(
+      extension?.exports.extensionConfiguration.coverageThreshold,
+      initialValue,
+    );
+  });
+
+  test("test can generate file decorations from the coverage file when below threshold", async () => {
+    await workspace
+      .getConfiguration("markiscodecoverage")
+      .update("coverageThreshold", 100);
+    const decoration =
+      extension?.exports.fileCoverageInfoProvider.provideFileDecoration(
+        exampleIndexUri,
+      );
+    assert.notEqual(decoration, undefined);
+  });
+
+  test("test will not generate file decorations from the coverage file when above threshold", async () => {
+    await workspace
+      .getConfiguration("markiscodecoverage")
+      .update("coverageThreshold", 25);
+    const decoration =
+      extension?.exports.fileCoverageInfoProvider.provideFileDecoration(
+        exampleIndexUri,
+      );
+    assert.strictEqual(decoration, undefined);
+  });
+
+  test("test will hide file decorations when above threshold", async () => {
+    await workspace
+      .getConfiguration("markiscodecoverage")
+      .update("coverageThreshold", 25);
+    const decoration =
+      extension?.exports.fileCoverageInfoProvider.provideFileDecoration(
+        exampleIndexUri,
+      );
+    assert.strictEqual(decoration, undefined);
   });
 });
