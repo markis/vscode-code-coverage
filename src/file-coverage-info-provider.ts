@@ -20,14 +20,13 @@ const isWindows = () => os.type() === "Windows_NT";
 
 const FILE_DECORATION_BADGE = "<%";
 const FILE_DECORATION_TOOLTIP_PRELUDE = "Insufficent Code Coverage:";
+type UriEventEmitterType = Uri | Uri[] | undefined
 
 export class FileCoverageInfoProvider
   extends Disposable
   implements FileDecorationProvider
 {
-  private readonly _onDidChangeFileDecorations = new EventEmitter<
-    Uri | Uri[] | undefined
-  >();
+  private readonly _onDidChangeFileDecorations = new EventEmitter<UriEventEmitterType>();
   private readonly _coverageByFile: Map<string, Coverage>;
   private _listener: Disposable;
   private _isDisposed = false;
@@ -77,16 +76,13 @@ export class FileCoverageInfoProvider
   }
 
   // The event that window.registerFileDecorationProvider() subscribes to
-  get onDidChangeFileDecorations(): Event<Uri | Uri[] | undefined> {
+  get onDidChangeFileDecorations(): Event<UriEventEmitterType> {
     this._checkDisposed();
     return this._onDidChangeFileDecorations.event;
   }
 
   // Either decorates or undecorates a file within the Explore View
-  provideFileDecoration(
-    uri: Uri,
-    _token: CancellationToken,
-  ): ProviderResult<FileDecoration> {
+  provideFileDecoration(uri: Uri, _token: CancellationToken): ProviderResult<FileDecoration> {
     this._checkDisposed();
 
     if (!this.showFileDecorations) {
@@ -101,22 +97,18 @@ export class FileCoverageInfoProvider
     }
 
     const coverage = this._coverageByFile.get(path);
-    if (coverage === undefined) {
-      return;
+    if (coverage) {
+      const { lines } = coverage;
+      const percentCovered = Math.floor((lines.hit / lines.found) * 100);
+
+      if (percentCovered < this._coverageThreshold) {
+        return new FileDecoration(
+          FILE_DECORATION_BADGE,
+          `${FILE_DECORATION_TOOLTIP_PRELUDE} ${percentCovered}% vs. ${this._coverageThreshold}%.`,
+          new ThemeColor("markiscodecoverage.insufficientCoverageForeground"),
+        );
+      }
     }
-
-    const { lines } = coverage;
-    const percentCovered = Math.floor((lines.hit / lines.found) * 100);
-
-    if (percentCovered < this._coverageThreshold) {
-      return new FileDecoration(
-        FILE_DECORATION_BADGE,
-        `${FILE_DECORATION_TOOLTIP_PRELUDE} ${percentCovered}% vs. ${this._coverageThreshold}%.`,
-        new ThemeColor("markiscodecoverage.insufficientCoverageForeground"),
-      );
-    }
-
-    return;
   }
 
   // Fire the onDidChangeFileDecorations event for the specified file(s)

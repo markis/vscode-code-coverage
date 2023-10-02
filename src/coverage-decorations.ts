@@ -8,8 +8,9 @@ import {
   TextEditorDecorationType,
   OverviewRulerLane,
   MarkdownString,
+  DiagnosticCollection,
 } from "vscode";
-import { ExtensionConfiguration } from "./extension-configuration";
+import { CONFIG_OPTION_SHOW_DECORATIONS, ExtensionConfiguration } from "./extension-configuration";
 
 const UNCOVERED_LINE_MESSAGE = "This line is missing code coverage.";
 
@@ -24,6 +25,9 @@ export class CoverageDecorations extends Disposable {
   private _decorationType: TextEditorDecorationType | undefined =
     CoverageDecorations._createDecorationType();
   private _fileCoverageDecorations = new Map<string, DecorationOptions[]>();
+  // When a workspace is first opened and already has an open document, the setDecoration method has to be called twice.
+  // If it is isn't, the user will have to tab between documents before the decorations will render.
+  private _setDecorationsCounter = 0;
 
   get decorationType(): TextEditorDecorationType {
     this._checkDisposed();
@@ -32,10 +36,20 @@ export class CoverageDecorations extends Disposable {
     return this._decorationType as TextEditorDecorationType;
   }
 
-  constructor(config: ExtensionConfiguration) {
+  constructor(config: ExtensionConfiguration, diagnostics: DiagnosticCollection) {
     // use dummy function for callOnDispose since dispose() will be overrided
     super(() => true);
     this._config = config;
+    
+    this._config.onConfigOptionUpdated((e) => {
+      if (e && e === CONFIG_OPTION_SHOW_DECORATIONS) {
+        if (this._config.showDecorations) {
+          this.displayCoverageDecorations(diagnostics);
+        } else {
+          this.clearAllDecorations();
+        }
+      }
+    });
   }
 
   public override dispose(): void {
@@ -44,6 +58,27 @@ export class CoverageDecorations extends Disposable {
       this._decorationType = undefined;
 
       this._isDisposed = true;
+    }
+  }
+  
+  /** Display coverage decorations in active text editor */
+  displayCoverageDecorations(diagnostics: DiagnosticCollection): void {
+    const activeTextEditor = window.activeTextEditor;
+    // Only want to call setDecorations at most 2 times.
+    if (activeTextEditor && this._setDecorationsCounter < 2) {
+      let decorations = this.getDecorationsForFile(activeTextEditor.document.uri);
+
+      // If VSCode launches the workspace with already opened document, this ensures the decorations will appear along with the diagnostics.
+      if (!decorations) {
+        this.addDecorationsForFile(
+          activeTextEditor.document.uri,
+          diagnostics.get(activeTextEditor.document.uri) ?? [],
+        );
+      } else {
+        const { decorationType, decorationOptions } = decorations;
+        activeTextEditor.setDecorations(decorationType, decorationOptions);
+        this._setDecorationsCounter++;
+      }
     }
   }
 
@@ -77,13 +112,23 @@ export class CoverageDecorations extends Disposable {
 
     this._fileCoverageDecorations.delete(file.toString());
   }
+  
+  /** Clears the decorations counter when changing active text editor. */
+  handleFileChange(): void {
+    this._setDecorationsCounter = 0;
+  }
 
   clearAllDecorations(): void {
     this._checkDisposed();
 
     this._fileCoverageDecorations.clear();
+    window.activeTextEditor?.setDecorations(this.decorationType, []);
+    window.visibleTextEditors.forEach((editor) => {
+      editor.setDecorations(this.decorationType, []);
+    });
   }
 
+  /** Maps diagnostics to decoration options. */
   private _mapDecorationOptions(
     diagnostics: readonly Diagnostic[],
   ): DecorationOptions[] {

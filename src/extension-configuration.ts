@@ -53,6 +53,11 @@ export class ExtensionConfiguration extends Disposable {
       this._isDisposed = true;
     }
   }
+  
+  public onConfigOptionUpdated(listener: (e: string) => any): Disposable {
+    this._checkDisposed();
+    return this._onConfigOptionUpdated.event(listener);
+  }
 
   get showCoverage() {
     this._checkDisposed();
@@ -88,11 +93,6 @@ export class ExtensionConfiguration extends Disposable {
   set coverageThreshold(value: number) {
     this._checkDisposed();
     this._coverageThreshold = value;
-  }
-
-  get onConfigOptionUpdated(): Event<string> {
-    this._checkDisposed();
-    return this._onConfigOptionUpdated.event;
   }
 
   dispatchConfigUpdate(
