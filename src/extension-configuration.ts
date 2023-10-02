@@ -1,7 +1,6 @@
 import {
   ConfigurationChangeEvent,
   Disposable,
-  Event,
   EventEmitter,
   WorkspaceConfiguration,
 } from "vscode";
@@ -53,7 +52,7 @@ export class ExtensionConfiguration extends Disposable {
       this._isDisposed = true;
     }
   }
-  
+
   public onConfigOptionUpdated(listener: (e: string) => any): Disposable {
     this._checkDisposed();
     return this._onConfigOptionUpdated.event(listener);

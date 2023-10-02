@@ -20,13 +20,14 @@ const isWindows = () => os.type() === "Windows_NT";
 
 const FILE_DECORATION_BADGE = "<%";
 const FILE_DECORATION_TOOLTIP_PRELUDE = "Insufficent Code Coverage:";
-type UriEventEmitterType = Uri | Uri[] | undefined
+type UriEventEmitterType = Uri | Uri[] | undefined;
 
 export class FileCoverageInfoProvider
   extends Disposable
   implements FileDecorationProvider
 {
-  private readonly _onDidChangeFileDecorations = new EventEmitter<UriEventEmitterType>();
+  private readonly _onDidChangeFileDecorations =
+    new EventEmitter<UriEventEmitterType>();
   private readonly _coverageByFile: Map<string, Coverage>;
   private _listener: Disposable;
   private _isDisposed = false;
@@ -82,7 +83,10 @@ export class FileCoverageInfoProvider
   }
 
   // Either decorates or undecorates a file within the Explore View
-  provideFileDecoration(uri: Uri, _token: CancellationToken): ProviderResult<FileDecoration> {
+  provideFileDecoration(
+    uri: Uri,
+    _token: CancellationToken,
+  ): ProviderResult<FileDecoration> {
     this._checkDisposed();
 
     if (!this.showFileDecorations) {

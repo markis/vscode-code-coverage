@@ -10,7 +10,10 @@ import {
   MarkdownString,
   DiagnosticCollection,
 } from "vscode";
-import { CONFIG_OPTION_SHOW_DECORATIONS, ExtensionConfiguration } from "./extension-configuration";
+import {
+  CONFIG_OPTION_SHOW_DECORATIONS,
+  ExtensionConfiguration,
+} from "./extension-configuration";
 
 const UNCOVERED_LINE_MESSAGE = "This line is missing code coverage.";
 
@@ -36,11 +39,14 @@ export class CoverageDecorations extends Disposable {
     return this._decorationType as TextEditorDecorationType;
   }
 
-  constructor(config: ExtensionConfiguration, diagnostics: DiagnosticCollection) {
+  constructor(
+    config: ExtensionConfiguration,
+    diagnostics: DiagnosticCollection,
+  ) {
     // use dummy function for callOnDispose since dispose() will be overrided
     super(() => true);
     this._config = config;
-    
+
     this._config.onConfigOptionUpdated((e) => {
       if (e && e === CONFIG_OPTION_SHOW_DECORATIONS) {
         if (this._config.showDecorations) {
@@ -60,13 +66,15 @@ export class CoverageDecorations extends Disposable {
       this._isDisposed = true;
     }
   }
-  
+
   /** Display coverage decorations in active text editor */
   displayCoverageDecorations(diagnostics: DiagnosticCollection): void {
     const activeTextEditor = window.activeTextEditor;
     // Only want to call setDecorations at most 2 times.
     if (activeTextEditor && this._setDecorationsCounter < 2) {
-      let decorations = this.getDecorationsForFile(activeTextEditor.document.uri);
+      let decorations = this.getDecorationsForFile(
+        activeTextEditor.document.uri,
+      );
 
       // If VSCode launches the workspace with already opened document, this ensures the decorations will appear along with the diagnostics.
       if (!decorations) {
@@ -112,7 +120,7 @@ export class CoverageDecorations extends Disposable {
 
     this._fileCoverageDecorations.delete(file.toString());
   }
-  
+
   /** Clears the decorations counter when changing active text editor. */
   handleFileChange(): void {
     this._setDecorationsCounter = 0;

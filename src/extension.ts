@@ -51,8 +51,10 @@ export async function activate(context: ExtensionContext) {
     workspace.getConfiguration(CONFIG_SECTION_NAME),
   );
   const workspaceFolders = workspace.workspaceFolders;
-  const coverageDecorations = new CoverageDecorations(extensionConfiguration, diagnostics);
-
+  const coverageDecorations = new CoverageDecorations(
+    extensionConfiguration,
+    diagnostics,
+  );
 
   // Register watchers and listen if the coverage file directory has changed
   registerWatchers();
