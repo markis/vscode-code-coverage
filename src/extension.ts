@@ -36,7 +36,6 @@ export async function deactivate() {
 export async function activate(context: ExtensionContext) {
   const packageInfo = require(join(context.extensionPath, "package.json"));
   const diagnostics = languages.createDiagnosticCollection("coverage");
-  const coverageDecorations = new CoverageDecorations();
   const statusBar = window.createStatusBarItem();
   const hideCommand = commands.registerCommand(
     `${packageInfo.name}.hide`,
@@ -52,6 +51,7 @@ export async function activate(context: ExtensionContext) {
     workspace.getConfiguration(CONFIG_SECTION_NAME),
   );
   const workspaceFolders = workspace.workspaceFolders;
+  const coverageDecorations = new CoverageDecorations(extensionConfiguration);
 
   // When a workspace is first opened and already has an open document, the setDecoration method has to be called twice.
   // If it is isn't, the user will have to tab between documents before the decorations will render.

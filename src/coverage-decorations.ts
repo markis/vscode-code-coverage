@@ -9,6 +9,7 @@ import {
   OverviewRulerLane,
   MarkdownString,
 } from "vscode";
+import { ExtensionConfiguration } from "./extension-configuration";
 
 const UNCOVERED_LINE_MESSAGE = "This line is missing code coverage.";
 
@@ -18,6 +19,7 @@ export interface CoverageDecoration {
 }
 
 export class CoverageDecorations extends Disposable {
+  private _config: ExtensionConfiguration;
   private _isDisposed = false;
   private _decorationType: TextEditorDecorationType | undefined =
     CoverageDecorations._createDecorationType();
@@ -30,9 +32,10 @@ export class CoverageDecorations extends Disposable {
     return this._decorationType as TextEditorDecorationType;
   }
 
-  constructor() {
+  constructor(config: ExtensionConfiguration) {
     // use dummy function for callOnDispose since dispose() will be overrided
     super(() => true);
+    this._config = config;
   }
 
   public override dispose(): void {
@@ -84,6 +87,11 @@ export class CoverageDecorations extends Disposable {
   private _mapDecorationOptions(
     diagnostics: readonly Diagnostic[],
   ): DecorationOptions[] {
+    // If decorations are disabled, return an empty array
+    if (!this._config.showDecorations) {
+      return [];
+    }
+
     const makeDecoration = (start: number, end: number) => {
       return {
         hoverMessage: new MarkdownString(UNCOVERED_LINE_MESSAGE),
@@ -99,7 +107,7 @@ export class CoverageDecorations extends Disposable {
     }
 
     // Instead of creating a decoration for each diagnostic,
-    //// create a decoration for each contiguous set of lines marked with diagnostics.
+    // create a decoration for each contiguous set of lines marked with diagnostics.
     let decorations: DecorationOptions[] = [];
     let start = diagnostics[0].range.start.line;
     let end = diagnostics[0].range.end.line;
