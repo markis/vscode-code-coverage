@@ -9,7 +9,12 @@ import {
   window,
   workspace,
   Extension,
+  ConfigurationTarget,
 } from "vscode";
+import {
+  CONFIG_OPTION_SHOW_DECORATIONS,
+  CONFIG_SECTION_NAME,
+} from "../../src/extension-configuration";
 
 suite("code-coverage", function () {
   this.timeout(10000);
@@ -53,17 +58,22 @@ suite("code-coverage", function () {
   });
 
   test("check decorations can be generated from diagnostics and retrieved", async () => {
-    const diagnostics = languages.getDiagnostics(exampleIndexUri);
-    extension?.exports.coverageDecorations.addDecorationsForFile(
-      exampleIndexUri,
-      diagnostics,
-    );
-    const decorationSpec =
-      extension?.exports.coverageDecorations.getDecorationsForFile(
-        exampleIndexUri,
-      );
-    assert.notEqual(decorationSpec, undefined);
-    assert.strictEqual(decorationSpec.decorationOptions.length, 1);
+    const configuration = workspace.getConfiguration(CONFIG_SECTION_NAME);
+    configuration
+      .update(CONFIG_OPTION_SHOW_DECORATIONS, true, ConfigurationTarget.Global)
+      .then(() => {
+        const diagnostics = languages.getDiagnostics(exampleIndexUri);
+        extension?.exports.coverageDecorations.addDecorationsForFile(
+          exampleIndexUri,
+          diagnostics,
+        );
+        const decorationSpec =
+          extension?.exports.coverageDecorations.getDecorationsForFile(
+            exampleIndexUri,
+          );
+        assert.notEqual(decorationSpec, undefined);
+        assert.strictEqual(decorationSpec.decorationOptions.length, 1);
+      });
   });
 
   test("check status bar", async () => {
