@@ -13,7 +13,6 @@ import {
   ExtensionConfiguration,
 } from "./extension-configuration";
 import { Coverage } from "./coverage-info";
-import * as os from "node:os";
 
 const FILE_DECORATION_BADGE = "<%";
 const FILE_DECORATION_TOOLTIP_PRELUDE = "Insufficent Code Coverage:";
@@ -92,8 +91,7 @@ export class FileCoverageInfoProvider
     if (this._isDisposing || !this._showFileDecorations) return;
 
     const cls = FileCoverageInfoProvider;
-    const path = cls.normalizePath(uri.fsPath);
-    const coverage = this._coverageByFile.get(path);
+    const coverage = this._coverageByFile.get(uri.fsPath);
     if (coverage) {
       const percentCovered = cls.calculateCoveragePercent(coverage.lines);
       if (percentCovered < this._coverageThreshold) {
@@ -123,21 +121,6 @@ export class FileCoverageInfoProvider
 
     this._coverageThreshold = this._configuration.coverageThreshold;
     this.updateFileDecorations();
-  }
-
-  /**
-   * @param path The path to normalize
-   * @returns The normalized path
-   * @description This method normalizes the path by Operating System.
-   */
-  private static normalizePath(path: string): string {
-    // Uri.file() might lowercase the drive letter on some machines which might not match coverageByFile's keys
-    // Encountered this issue on a Windows 11 machine but not my main Windows 10 system...
-    const isWindows = os.type() === "Windows_NT";
-    if (isWindows) {
-      return path.charAt(0).toUpperCase() + path.slice(1);
-    }
-    return path;
   }
 
   /**
