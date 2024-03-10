@@ -1,4 +1,4 @@
-import { equal } from 'assert';
+import { strictEqual } from 'assert';
 import { add } from './index';
 
-equal(add(1, 1), 2);
+strictEqual(add(1, 1), 2);

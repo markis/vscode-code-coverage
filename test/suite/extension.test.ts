@@ -17,7 +17,6 @@ import {
 } from "../../src/extension-configuration";
 
 suite("code-coverage", function () {
-  this.timeout(10000);
   const exampleWorkspace = join(__dirname, "../../../", "example");
   const exampleWorkspaceUri = Uri.file(exampleWorkspace);
   const exampleIndexUri = Uri.file(join(exampleWorkspace, "index.ts"));
