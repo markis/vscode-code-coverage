@@ -20,6 +20,16 @@ type UriEventEmitterType = Uri[] | undefined;
 type FileDecorationsEmitterType = EventEmitter<UriEventEmitterType> | undefined;
 
 /**
+ * @param lines The coverage data for a file
+ * @returns The coverage percentage
+ * @description This method calculates the coverage percentage based on the number of lines hit and the number of lines found.
+ */
+function calculateCoveragePercent(coverage: Coverage): number {
+  const lines = coverage.lines;
+  return Math.floor((lines.hit / lines.found) * 100);
+}
+
+/**
  * This class provides file decorations for the Explore View based on code coverage.
  * It listens for changes to the coverage threshold and regenerates the file decorations when it changes.
  */
@@ -90,10 +100,9 @@ export class FileCoverageInfoProvider
   ): ProviderResult<FileDecoration> {
     if (this._isDisposing || !this._showFileDecorations) return;
 
-    const cls = FileCoverageInfoProvider;
     const coverage = this._coverageByFile.get(uri.fsPath);
     if (coverage) {
-      const percentCovered = cls.calculateCoveragePercent(coverage.lines);
+      const percentCovered = calculateCoveragePercent(coverage);
       if (percentCovered < this._coverageThreshold) {
         return new FileDecoration(
           FILE_DECORATION_BADGE,
@@ -121,17 +130,5 @@ export class FileCoverageInfoProvider
 
     this._coverageThreshold = this._configuration.coverageThreshold;
     this.updateFileDecorations();
-  }
-
-  /**
-   * @param lines The coverage data for a file
-   * @returns The coverage percentage
-   * @description This method calculates the coverage percentage based on the number of lines hit and the number of lines found.
-   */
-  private static calculateCoveragePercent(lines: {
-    hit: number;
-    found: number;
-  }): number {
-    return Math.floor((lines.hit / lines.found) * 100);
   }
 }
