@@ -1,4 +1,4 @@
-import { exists, readFile } from "fs";
+import { existsSync, readFile } from "fs";
 import { Coverage, CoverageCollection } from "./coverage-info";
 
 function walkFile(str: string): Promise<CoverageCollection> {
@@ -132,12 +132,10 @@ function walkFile(str: string): Promise<CoverageCollection> {
 
 export function parse(file: string): Promise<CoverageCollection> {
   return new Promise((resolve, reject) => {
-    exists(file, (exists) => {
-      !exists
-        ? walkFile(file).then(resolve).catch(reject)
-        : readFile(file, "utf8", (_, str) => {
-            walkFile(str).then(resolve).catch(reject);
-          });
-    });
+    !existsSync(file)
+      ? walkFile(file).then(resolve).catch(reject)
+      : readFile(file, "utf8", (_, str) => {
+        walkFile(str).then(resolve).catch(reject);
+      });
   });
 }

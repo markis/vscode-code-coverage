@@ -1,7 +1,6 @@
 import {
   CancellationToken,
   Disposable,
-  Event,
   EventEmitter,
   FileDecoration,
   FileDecorationProvider,
@@ -16,95 +15,80 @@ import {
 import { Coverage } from "./coverage-info";
 import * as os from "node:os";
 
-const isWindows = () => os.type() === "Windows_NT";
 
 const FILE_DECORATION_BADGE = "<%";
 const FILE_DECORATION_TOOLTIP_PRELUDE = "Insufficent Code Coverage:";
-type UriEventEmitterType = Uri | Uri[] | undefined;
+type UriEventEmitterType = Uri[] | undefined;
+type FileDecorationsEmitterType = EventEmitter<UriEventEmitterType> | undefined;
 
-export class FileCoverageInfoProvider
-  extends Disposable
-  implements FileDecorationProvider
-{
-  private readonly _onDidChangeFileDecorations =
-    new EventEmitter<UriEventEmitterType>();
-  private readonly _coverageByFile: Map<string, Coverage>;
-  private _listener: Disposable;
-  private _isDisposed = false;
-  private _showFileDecorations = true;
-  private _coverageThreshold = 0;
-
+/**
+* This class provides file decorations for the Explore View based on code coverage.
+* It listens for changes to the coverage threshold and regenerates the file decorations when it changes.
+*/
+export class FileCoverageInfoProvider extends Disposable implements FileDecorationProvider {
   constructor(
-    readonly configuration: ExtensionConfiguration,
-    readonly coverageByFile: Map<string, Coverage>,
+    private readonly _configuration: ExtensionConfiguration,
+    private readonly _coverageByFile: Map<string, Coverage>,
+    private _showFileDecorations = _configuration.showDecorations,
+    private _coverageThreshold = _configuration.coverageThreshold,
+    private _isDisposing = false,
+    private _fileDecorationsEmitter: FileDecorationsEmitterType = new EventEmitter<UriEventEmitterType>(),
+    public readonly onDidChangeFileDecorations = _fileDecorationsEmitter.event,
+    _listeners: Disposable[] = [_fileDecorationsEmitter],
   ) {
-    // use dummy function for callOnDispose since dispose() will be overrided
-    super(() => true);
-
-    this._coverageByFile = coverageByFile;
-    this._coverageThreshold = configuration.coverageThreshold;
+    super(() => {
+      this._isDisposing = true;
+      for (const listener of _listeners) listener.dispose();
+      delete this._fileDecorationsEmitter;
+    })
 
     // Watch for updates to coverage threshold and regenerate when its updated
-    this._listener = configuration.onConfigOptionUpdated((e) => {
-      if (
-        e &&
-        e === CONFIG_OPTION_COVERAGE_THRESHOLD &&
-        configuration.coverageThreshold !== this._coverageThreshold
-      ) {
-        this._coverageThreshold = configuration.coverageThreshold;
-        this.changeFileDecorations(Array.from(this._coverageByFile.keys()));
-      }
-    });
+    _listeners.push(
+      _configuration.onConfigOptionUpdated(this.handleConfigUpdate.bind(this))
+    );
   }
 
-  public override dispose(): void {
-    if (!this._isDisposed) {
-      this._onDidChangeFileDecorations.dispose();
-      this._listener.dispose();
-
-      this._isDisposed = true;
-    }
+  /**
+  * @description This method shows the file decorations for the Explore View.
+  */
+  public showCoverage(): void {
+    this._showFileDecorations = true;
+    this.updateFileDecorations();
   }
 
-  // Toggle display of the decorations in Explore View
-  get showFileDecorations(): boolean {
-    this._checkDisposed();
-    return this._showFileDecorations;
-  }
-  set showFileDecorations(value: boolean) {
-    this._checkDisposed();
-    this._showFileDecorations = value;
+  /**
+  * @description This method hides the file decorations for the Explore View.
+  */
+  public hideCoverage(): void {
+    this._showFileDecorations = false;
+    this.updateFileDecorations();
   }
 
-  // The event that window.registerFileDecorationProvider() subscribes to
-  get onDidChangeFileDecorations(): Event<UriEventEmitterType> {
-    this._checkDisposed();
-    return this._onDidChangeFileDecorations.event;
+  /**
+  * @param fsPaths The file(s) to decorate
+  * @description This method is called by the extension to fire the onDidChangeFileDecorations event for the specified file(s).
+  */
+  public updateFileDecorations(): void {
+    if (this._isDisposing || !this._fileDecorationsEmitter) return;
+
+    const uris = Array.from(this._coverageByFile.keys()).map(path => Uri.file(path));
+    this._fileDecorationsEmitter.fire(uris);
   }
 
-  // Either decorates or undecorates a file within the Explore View
-  provideFileDecoration(
-    uri: Uri,
-    _token: CancellationToken,
-  ): ProviderResult<FileDecoration> {
-    this._checkDisposed();
+  /**
+  * @param uri The file to decorate
+  * @param _token
+  * @returns The decoration to apply to the file
+  * @description This method is called by VSCode to decorate a file in the Explore View.
+  */
+  public provideFileDecoration(uri: Uri, _token: CancellationToken): ProviderResult<FileDecoration> {
+    if (this._isDisposing || !this._showFileDecorations) return;
 
-    if (!this.showFileDecorations) {
-      return;
-    }
-
-    let path = uri.fsPath;
-    // Uri.file() might lowercase the drive letter on some machines which might not match coverageByFile's keys
-    // Encountered this issue on a Windows 11 machine but not my main Windows 10 system...
-    if (!this._coverageByFile.has(path) && isWindows()) {
-      path = path.charAt(0).toUpperCase().concat(path.substring(1));
-    }
-
+    const cls = FileCoverageInfoProvider;
+    const path = cls.normalizePath(uri.fsPath);
     const coverage = this._coverageByFile.get(path);
     if (coverage) {
-      const { lines } = coverage;
-      const percentCovered = Math.floor((lines.hit / lines.found) * 100);
-
+      const percentCovered = cls.calculateCoveragePercent(coverage.lines);
       if (percentCovered < this._coverageThreshold) {
         return new FileDecoration(
           FILE_DECORATION_BADGE,
@@ -115,22 +99,47 @@ export class FileCoverageInfoProvider
     }
   }
 
-  // Fire the onDidChangeFileDecorations event for the specified file(s)
-  changeFileDecorations(fsPaths: string | string[]): void {
-    this._checkDisposed();
 
-    if (typeof fsPaths === "string") {
-      this._onDidChangeFileDecorations.fire([Uri.file(fsPaths)]);
+  /**
+  * @param e The configuration option that was updated
+  * @description This method is called when a configuration option is updated.
+  * It checks if the coverage threshold was updated and updates the coverage threshold if it was.
+  * It then regenerates the file decorations.
+  */
+  private handleConfigUpdate(e: string): void {
+    if (
+      this._isDisposing
+      || e !== CONFIG_OPTION_COVERAGE_THRESHOLD
+      || this._coverageThreshold === this._configuration.coverageThreshold
+    ) {
+      return;
     }
 
-    this._onDidChangeFileDecorations.fire(
-      (fsPaths as string[]).map((p) => Uri.file(p)),
-    );
+    this._coverageThreshold = this._configuration.coverageThreshold;
+    this.updateFileDecorations();
   }
 
-  private _checkDisposed() {
-    if (this._isDisposed) {
-      throw new Error("illegal state - object is disposed");
+  /**
+  * @param path The path to normalize
+  * @returns The normalized path
+  * @description This method normalizes the path by Operating System.
+  */
+  private static normalizePath(path: string): string {
+    // Uri.file() might lowercase the drive letter on some machines which might not match coverageByFile's keys
+    // Encountered this issue on a Windows 11 machine but not my main Windows 10 system...
+    const isWindows = os.type() === "Windows_NT";
+    if (isWindows) {
+      return path.charAt(0).toUpperCase() + path.slice(1);
     }
+    return path;
+  }
+
+  /**
+  * @param lines The coverage data for a file
+  * @returns The coverage percentage
+  * @description This method calculates the coverage percentage based on the number of lines hit and the number of lines found.
+  */
+  private static calculateCoveragePercent(lines: { hit: number, found: number }): number {
+    return Math.floor((lines.hit / lines.found) * 100);
   }
 }

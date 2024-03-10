@@ -53,7 +53,7 @@ export async function activate(context: ExtensionContext) {
   const workspaceFolders = workspace.workspaceFolders;
   const coverageDecorations = new CoverageDecorations(
     extensionConfiguration,
-    diagnostics,
+    coverageByFile,
   );
 
   // Register watchers and listen if the coverage file directory has changed
@@ -112,6 +112,7 @@ export async function activate(context: ExtensionContext) {
 
   // Run the main routine at activation time as well
   await findDiagnosticsInWorkspace();
+  fileCoverageInfoProvider.updateFileDecorations();
 
   // Register watchers for file changes on coverage files to re-run the coverage parser
   function registerWatchers() {
@@ -129,7 +130,7 @@ export async function activate(context: ExtensionContext) {
     }
   }
 
-  onCommand = async function onCommand(cmd: string) {
+  async function onCommand(cmd: string) {
     switch (cmd) {
       case `${packageInfo.name}.hide`:
         return onHideCoverage();
@@ -140,27 +141,21 @@ export async function activate(context: ExtensionContext) {
 
   async function onHideCoverage() {
     extensionConfiguration.showCoverage = false;
-    fileCoverageInfoProvider.showFileDecorations = false;
-    fileCoverageInfoProvider.changeFileDecorations(
-      Array.from(coverageByFile.keys()),
-    );
+    fileCoverageInfoProvider.hideCoverage();
     diagnostics.clear();
     coverageDecorations.clearAllDecorations();
   }
 
   async function onShowCoverage() {
     extensionConfiguration.showCoverage = true;
-    fileCoverageInfoProvider.showFileDecorations = true;
+    fileCoverageInfoProvider.showCoverage()
     await findDiagnosticsInWorkspace();
-    coverageDecorations.displayCoverageDecorations(diagnostics);
+    coverageDecorations.displayCoverageDecorations();
   }
 
   async function findDiagnosticsInWorkspace() {
     if (workspaceFolders) {
       await Promise.all(workspaceFolders.map(findDiagnostics));
-      fileCoverageInfoProvider.changeFileDecorations(
-        Array.from(coverageByFile.keys()),
-      );
     }
   }
 
@@ -176,6 +171,7 @@ export async function activate(context: ExtensionContext) {
       recordFileCoverage(coverages, workspaceFolder.uri.fsPath);
       convertDiagnostics(coverages, workspaceFolder.uri.fsPath);
     }
+    showStatusAndDecorations();
   }
 
   // Show the coverage in the VSCode status bar at the bottom
@@ -186,24 +182,22 @@ export async function activate(context: ExtensionContext) {
       return;
     }
     const file: string = activeTextEditor.document.uri.fsPath;
-    if (coverageByFile.has(file)) {
-      const coverage = coverageByFile.get(file);
-      if (coverage) {
-        const { lines } = coverage;
-        coverageDecorations.displayCoverageDecorations(diagnostics);
-        statusBar.text = `Coverage: ${lines.hit}/${lines.found} lines`;
-        statusBar.show();
-      }
+    const coverage = coverageByFile.get(file);
+    if (coverage) {
+      const { lines } = coverage;
+      statusBar.text = `Coverage: ${lines.hit}/${lines.found} lines`;
+      statusBar.show();
+      coverageDecorations.displayCoverageDecorations(coverage);
     } else {
       statusBar.hide();
     }
   }
 
+  // Record the coverage information for each file
   function recordFileCoverage(
     coverages: CoverageCollection,
     workspaceFolder: string,
   ) {
-    coverageByFile.clear();
     for (const coverage of coverages) {
       const fileName = !isAbsolute(coverage.file)
         ? join(workspaceFolder, coverage.file)
@@ -211,7 +205,6 @@ export async function activate(context: ExtensionContext) {
 
       coverageByFile.set(fileName, coverage);
     }
-    showStatusAndDecorations();
   }
 
   // Takes parsed coverage information and turns it into diagnostics
@@ -235,7 +228,10 @@ export async function activate(context: ExtensionContext) {
         if (diagnosticsForFiles.length > 0) {
           const file = Uri.file(fileName);
           diagnostics.set(file, diagnosticsForFiles);
-          coverageDecorations.addDecorationsForFile(file, diagnosticsForFiles);
+          const coverage = coverageByFile.get(fileName);
+          if (coverage) {
+            coverageDecorations.addDecorationsForFile(fileName, coverage);
+          }
         } else {
           const file = Uri.file(fileName);
           diagnostics.delete(file);
@@ -280,4 +276,4 @@ export async function activate(context: ExtensionContext) {
   };
 }
 
-async function noop() {}
+async function noop() { }

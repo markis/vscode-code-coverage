@@ -1,19 +1,18 @@
 import {
   window,
   DecorationOptions,
-  Diagnostic,
   Disposable,
   Uri,
   Range,
   TextEditorDecorationType,
   OverviewRulerLane,
   MarkdownString,
-  DiagnosticCollection,
 } from "vscode";
 import {
   CONFIG_OPTION_SHOW_DECORATIONS,
   ExtensionConfiguration,
 } from "./extension-configuration";
+import { Coverage } from "./coverage-info";
 
 const UNCOVERED_LINE_MESSAGE = "This line is missing code coverage.";
 
@@ -23,184 +22,130 @@ export interface CoverageDecoration {
 }
 
 export class CoverageDecorations extends Disposable {
-  private _config: ExtensionConfiguration;
-  private _isDisposed = false;
-  private _decorationType: TextEditorDecorationType | undefined =
-    CoverageDecorations._createDecorationType();
-  private _fileCoverageDecorations = new Map<string, DecorationOptions[]>();
-  // When a workspace is first opened and already has an open document, the setDecoration method has to be called twice.
-  // If it is isn't, the user will have to tab between documents before the decorations will render.
-  private _setDecorationsCounter = 0;
-
-  get decorationType(): TextEditorDecorationType {
-    this._checkDisposed();
-
-    // will never be undefined if not disposed
-    return this._decorationType as TextEditorDecorationType;
-  }
-
   constructor(
-    config: ExtensionConfiguration,
-    diagnostics: DiagnosticCollection,
+    private _config: ExtensionConfiguration,
+    private _coverageByFile: Map<string, Coverage>,
+    private _isDisposing = false,
+    private readonly _decorationType = CoverageDecorations._createDecorationType(),
+    private readonly _fileCoverageDecorations = new Map<string, DecorationOptions[]>(),
+    _listeners: Disposable[] = [],
   ) {
-    // use dummy function for callOnDispose since dispose() will be overrided
-    super(() => true);
-    this._config = config;
+    super(() => {
+      this._isDisposing = true;
+      _fileCoverageDecorations.clear();
+      _decorationType.dispose();
 
-    this._config.onConfigOptionUpdated((e) => {
-      if (e && e === CONFIG_OPTION_SHOW_DECORATIONS) {
-        if (this._config.showDecorations) {
-          this.displayCoverageDecorations(diagnostics);
-        } else {
-          this.clearAllDecorations();
-        }
-      }
+      for (const listener of _listeners) listener.dispose();
     });
-  }
 
-  public override dispose(): void {
-    if (!this._isDisposed) {
-      this._fileCoverageDecorations.clear();
-      this._decorationType = undefined;
+    _listeners.push(
+      this._config.onConfigOptionUpdated((e) => {
+        if (e && e === CONFIG_OPTION_SHOW_DECORATIONS && window.activeTextEditor) {
+          const activeFile = window.activeTextEditor.document.uri.fsPath;
+          const coverage = this._coverageByFile.get(activeFile);
 
-      this._isDisposed = true;
-    }
+          coverage && this._config.showDecorations
+            ? this.displayCoverageDecorations(coverage)
+            : this.clearAllDecorations();
+        }
+      })
+    );
   }
 
   /** Display coverage decorations in active text editor */
-  displayCoverageDecorations(diagnostics: DiagnosticCollection): void {
+  displayCoverageDecorations(coverage?: Coverage): void {
+    if (this._isDisposing) return;
+
     const activeTextEditor = window.activeTextEditor;
-    // Only want to call setDecorations at most 2 times.
-    if (activeTextEditor && this._setDecorationsCounter < 2) {
-      let decorations = this.getDecorationsForFile(
-        activeTextEditor.document.uri,
-      );
-
-      // If VSCode launches the workspace with already opened document, this ensures the decorations will appear along with the diagnostics.
-      if (!decorations) {
-        this.addDecorationsForFile(
-          activeTextEditor.document.uri,
-          diagnostics.get(activeTextEditor.document.uri) ?? [],
-        );
-      } else {
-        const { decorationType, decorationOptions } = decorations;
-        activeTextEditor.setDecorations(decorationType, decorationOptions);
-        this._setDecorationsCounter++;
-      }
+    if (!activeTextEditor) return;
+    const file = activeTextEditor.document.uri.fsPath;
+    let decorations = this._fileCoverageDecorations.get(file);
+    if (!coverage) {
+      coverage = this._coverageByFile.get(file);
+    }
+    if (!decorations && coverage) {
+      decorations = this._mapDecorationOptions(coverage);
+      this._fileCoverageDecorations.set(file, decorations);
+    }
+    if (decorations) {
+      activeTextEditor.setDecorations(this._decorationType, decorations);
     }
   }
 
-  addDecorationsForFile(file: Uri, diagnostics: readonly Diagnostic[]): void {
-    this._checkDisposed();
+  addDecorationsForFile(file: string, coverage: Coverage): DecorationOptions[] | undefined {
+    if (this._isDisposing) return undefined;
 
-    this._fileCoverageDecorations.set(
-      file.toString(),
-      this._mapDecorationOptions(diagnostics),
-    );
-  }
-
-  getDecorationsForFile(file: Uri): CoverageDecoration | undefined {
-    this._checkDisposed();
-    const coverageDecorations = this._fileCoverageDecorations.get(
-      file.toString(),
-    );
-
-    if (coverageDecorations !== undefined) {
-      return {
-        decorationType: this._decorationType as TextEditorDecorationType,
-        decorationOptions: coverageDecorations,
-      };
-    }
-
-    return coverageDecorations;
+    const decorations = this._mapDecorationOptions(coverage);
+    this._fileCoverageDecorations.set(file, decorations);
+    return decorations;
   }
 
   removeDecorationsForFile(file: Uri): void {
-    this._checkDisposed();
+    if (this._isDisposing) return undefined;
 
-    this._fileCoverageDecorations.delete(file.toString());
+    this._fileCoverageDecorations.delete(file.fsPath);
   }
 
   /** Clears the decorations counter when changing active text editor. */
   handleFileChange(): void {
-    this._setDecorationsCounter = 0;
+    this.displayCoverageDecorations();
   }
 
   clearAllDecorations(): void {
-    this._checkDisposed();
+    if (this._isDisposing) return undefined;
 
     this._fileCoverageDecorations.clear();
-    window.activeTextEditor?.setDecorations(this.decorationType, []);
+    window.activeTextEditor?.setDecorations(this._decorationType, []);
     window.visibleTextEditors.forEach((editor) => {
-      editor.setDecorations(this.decorationType, []);
+      editor.setDecorations(this._decorationType, []);
     });
   }
 
   /** Maps diagnostics to decoration options. */
-  private _mapDecorationOptions(
-    diagnostics: readonly Diagnostic[],
-  ): DecorationOptions[] {
-    // If decorations are disabled, return an empty array
-    if (!this._config.showDecorations) {
+  private _mapDecorationOptions(coverage: Coverage): DecorationOptions[] {
+    if (this._isDisposing || !this._config.showDecorations) {
       return [];
     }
 
-    const makeDecoration = (start: number, end: number) => {
-      return {
-        hoverMessage: new MarkdownString(UNCOVERED_LINE_MESSAGE),
-        range: new Range(start, 1, end, 1),
-      };
-    };
-
-    // For a single diagnostic or none, create a single decoration or none.
-    if (diagnostics.length <= 1) {
-      return diagnostics.map((diag) =>
-        makeDecoration(diag.range.start.line, diag.range.end.line),
-      );
+    const lineNums = coverage.lines.details.filter((line) => line.hit === 0).map((line) => line.line - 1);
+    const groupedLines = this.groupConsecutiveNumbers(lineNums);
+    const decorations: DecorationOptions[] = [];
+    for (const [start, end] of groupedLines) {
+      const decoration = CoverageDecorations.makeDecoration(start, end);
+      decorations.push(decoration);
     }
-
-    // Instead of creating a decoration for each diagnostic,
-    // create a decoration for each contiguous set of lines marked with diagnostics.
-    let decorations: DecorationOptions[] = [];
-    let start = diagnostics[0].range.start.line;
-    let end = diagnostics[0].range.end.line;
-    for (let i = 0; i < diagnostics.length; ++i) {
-      if (i === 0) {
-        continue;
-      }
-
-      // If this a line number constitutes a segment, increase the end line number
-      if (
-        diagnostics[i - 1].range.end.line + 1 ===
-        diagnostics[i].range.start.line
-      ) {
-        end = diagnostics[i].range.end.line;
-        if (i + 1 < diagnostics.length) {
-          continue;
-        }
-      }
-
-      // Create decorations covering the found line segment
-      decorations.push(makeDecoration(start, end));
-      start = diagnostics[i].range.start.line;
-      end = diagnostics[i].range.end.line;
-
-      // If the very last diagnostic constitutes a point and is not part of any segment, create a decoration for it.
-      if (
-        i + 1 === diagnostics.length &&
-        decorations[decorations.length - 1].range.end.line !== start
-      ) {
-        decorations.push(makeDecoration(start, end));
-      }
-    }
-
     return decorations;
   }
 
-  private _checkDisposed() {
-    if (this._isDisposed) {
-      throw new Error("illegal state - object is disposed");
+  private groupConsecutiveNumbers(numbers: number[]): Array<[number, number]> {
+    const sortedNumbers = numbers.sort((a, b) => a - b);
+    const result: Array<[number, number]> = [];
+    let currentGroup: [number, number] | null = null;
+
+    for (const num of sortedNumbers) {
+      if (!currentGroup) {
+        currentGroup = [num, num];
+      } else if (num === currentGroup[1] + 1) {
+        currentGroup[1] = num;
+      } else {
+        result.push(currentGroup);
+        currentGroup = [num, num];
+      }
     }
+
+    if (currentGroup) {
+      result.push(currentGroup);
+    }
+
+    return result;
+  }
+
+
+  private static makeDecoration(start: number, end: number) {
+    return {
+      hoverMessage: new MarkdownString(UNCOVERED_LINE_MESSAGE),
+      range: new Range(start, 1, end, 1),
+    };
   }
 
   private static _createDecorationType(): TextEditorDecorationType {
