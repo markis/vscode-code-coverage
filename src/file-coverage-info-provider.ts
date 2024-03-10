@@ -15,17 +15,19 @@ import {
 import { Coverage } from "./coverage-info";
 import * as os from "node:os";
 
-
 const FILE_DECORATION_BADGE = "<%";
 const FILE_DECORATION_TOOLTIP_PRELUDE = "Insufficent Code Coverage:";
 type UriEventEmitterType = Uri[] | undefined;
 type FileDecorationsEmitterType = EventEmitter<UriEventEmitterType> | undefined;
 
 /**
-* This class provides file decorations for the Explore View based on code coverage.
-* It listens for changes to the coverage threshold and regenerates the file decorations when it changes.
-*/
-export class FileCoverageInfoProvider extends Disposable implements FileDecorationProvider {
+ * This class provides file decorations for the Explore View based on code coverage.
+ * It listens for changes to the coverage threshold and regenerates the file decorations when it changes.
+ */
+export class FileCoverageInfoProvider
+  extends Disposable
+  implements FileDecorationProvider
+{
   constructor(
     private readonly _configuration: ExtensionConfiguration,
     private readonly _coverageByFile: Map<string, Coverage>,
@@ -40,48 +42,53 @@ export class FileCoverageInfoProvider extends Disposable implements FileDecorati
       this._isDisposing = true;
       for (const listener of _listeners) listener.dispose();
       delete this._fileDecorationsEmitter;
-    })
+    });
 
     // Watch for updates to coverage threshold and regenerate when its updated
     _listeners.push(
-      _configuration.onConfigOptionUpdated(this.handleConfigUpdate.bind(this))
+      _configuration.onConfigOptionUpdated(this.handleConfigUpdate.bind(this)),
     );
   }
 
   /**
-  * @description This method shows the file decorations for the Explore View.
-  */
+   * @description This method shows the file decorations for the Explore View.
+   */
   public showCoverage(): void {
     this._showFileDecorations = true;
     this.updateFileDecorations();
   }
 
   /**
-  * @description This method hides the file decorations for the Explore View.
-  */
+   * @description This method hides the file decorations for the Explore View.
+   */
   public hideCoverage(): void {
     this._showFileDecorations = false;
     this.updateFileDecorations();
   }
 
   /**
-  * @param fsPaths The file(s) to decorate
-  * @description This method is called by the extension to fire the onDidChangeFileDecorations event for the specified file(s).
-  */
+   * @param fsPaths The file(s) to decorate
+   * @description This method is called by the extension to fire the onDidChangeFileDecorations event for the specified file(s).
+   */
   public updateFileDecorations(): void {
     if (this._isDisposing || !this._fileDecorationsEmitter) return;
 
-    const uris = Array.from(this._coverageByFile.keys()).map(path => Uri.file(path));
+    const uris = Array.from(this._coverageByFile.keys()).map((path) =>
+      Uri.file(path),
+    );
     this._fileDecorationsEmitter.fire(uris);
   }
 
   /**
-  * @param uri The file to decorate
-  * @param _token
-  * @returns The decoration to apply to the file
-  * @description This method is called by VSCode to decorate a file in the Explore View.
-  */
-  public provideFileDecoration(uri: Uri, _token: CancellationToken): ProviderResult<FileDecoration> {
+   * @param uri The file to decorate
+   * @param _token
+   * @returns The decoration to apply to the file
+   * @description This method is called by VSCode to decorate a file in the Explore View.
+   */
+  public provideFileDecoration(
+    uri: Uri,
+    _token: CancellationToken,
+  ): ProviderResult<FileDecoration> {
     if (this._isDisposing || !this._showFileDecorations) return;
 
     const cls = FileCoverageInfoProvider;
@@ -99,18 +106,17 @@ export class FileCoverageInfoProvider extends Disposable implements FileDecorati
     }
   }
 
-
   /**
-  * @param e The configuration option that was updated
-  * @description This method is called when a configuration option is updated.
-  * It checks if the coverage threshold was updated and updates the coverage threshold if it was.
-  * It then regenerates the file decorations.
-  */
+   * @param e The configuration option that was updated
+   * @description This method is called when a configuration option is updated.
+   * It checks if the coverage threshold was updated and updates the coverage threshold if it was.
+   * It then regenerates the file decorations.
+   */
   private handleConfigUpdate(e: string): void {
     if (
-      this._isDisposing
-      || e !== CONFIG_OPTION_COVERAGE_THRESHOLD
-      || this._coverageThreshold === this._configuration.coverageThreshold
+      this._isDisposing ||
+      e !== CONFIG_OPTION_COVERAGE_THRESHOLD ||
+      this._coverageThreshold === this._configuration.coverageThreshold
     ) {
       return;
     }
@@ -120,10 +126,10 @@ export class FileCoverageInfoProvider extends Disposable implements FileDecorati
   }
 
   /**
-  * @param path The path to normalize
-  * @returns The normalized path
-  * @description This method normalizes the path by Operating System.
-  */
+   * @param path The path to normalize
+   * @returns The normalized path
+   * @description This method normalizes the path by Operating System.
+   */
   private static normalizePath(path: string): string {
     // Uri.file() might lowercase the drive letter on some machines which might not match coverageByFile's keys
     // Encountered this issue on a Windows 11 machine but not my main Windows 10 system...
@@ -135,11 +141,14 @@ export class FileCoverageInfoProvider extends Disposable implements FileDecorati
   }
 
   /**
-  * @param lines The coverage data for a file
-  * @returns The coverage percentage
-  * @description This method calculates the coverage percentage based on the number of lines hit and the number of lines found.
-  */
-  private static calculateCoveragePercent(lines: { hit: number, found: number }): number {
+   * @param lines The coverage data for a file
+   * @returns The coverage percentage
+   * @description This method calculates the coverage percentage based on the number of lines hit and the number of lines found.
+   */
+  private static calculateCoveragePercent(lines: {
+    hit: number;
+    found: number;
+  }): number {
     return Math.floor((lines.hit / lines.found) * 100);
   }
 }

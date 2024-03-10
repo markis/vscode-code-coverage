@@ -135,7 +135,7 @@ export function parse(file: string): Promise<CoverageCollection> {
     !existsSync(file)
       ? walkFile(file).then(resolve).catch(reject)
       : readFile(file, "utf8", (_, str) => {
-        walkFile(str).then(resolve).catch(reject);
-      });
+          walkFile(str).then(resolve).catch(reject);
+        });
   });
 }

@@ -27,7 +27,10 @@ export class CoverageDecorations extends Disposable {
     private _coverageByFile: Map<string, Coverage>,
     private _isDisposing = false,
     private readonly _decorationType = CoverageDecorations._createDecorationType(),
-    private readonly _fileCoverageDecorations = new Map<string, DecorationOptions[]>(),
+    private readonly _fileCoverageDecorations = new Map<
+      string,
+      DecorationOptions[]
+    >(),
     _listeners: Disposable[] = [],
   ) {
     super(() => {
@@ -40,7 +43,11 @@ export class CoverageDecorations extends Disposable {
 
     _listeners.push(
       this._config.onConfigOptionUpdated((e) => {
-        if (e && e === CONFIG_OPTION_SHOW_DECORATIONS && window.activeTextEditor) {
+        if (
+          e &&
+          e === CONFIG_OPTION_SHOW_DECORATIONS &&
+          window.activeTextEditor
+        ) {
           const activeFile = window.activeTextEditor.document.uri.fsPath;
           const coverage = this._coverageByFile.get(activeFile);
 
@@ -48,7 +55,7 @@ export class CoverageDecorations extends Disposable {
             ? this.displayCoverageDecorations(coverage)
             : this.clearAllDecorations();
         }
-      })
+      }),
     );
   }
 
@@ -72,7 +79,10 @@ export class CoverageDecorations extends Disposable {
     }
   }
 
-  addDecorationsForFile(file: string, coverage: Coverage): DecorationOptions[] | undefined {
+  addDecorationsForFile(
+    file: string,
+    coverage: Coverage,
+  ): DecorationOptions[] | undefined {
     if (this._isDisposing) return undefined;
 
     const decorations = this._mapDecorationOptions(coverage);
@@ -107,7 +117,9 @@ export class CoverageDecorations extends Disposable {
       return [];
     }
 
-    const lineNums = coverage.lines.details.filter((line) => line.hit === 0).map((line) => line.line - 1);
+    const lineNums = coverage.lines.details
+      .filter((line) => line.hit === 0)
+      .map((line) => line.line - 1);
     const groupedLines = this.groupConsecutiveNumbers(lineNums);
     const decorations: DecorationOptions[] = [];
     for (const [start, end] of groupedLines) {
@@ -139,7 +151,6 @@ export class CoverageDecorations extends Disposable {
 
     return result;
   }
-
 
   private static makeDecoration(start: number, end: number) {
     return {

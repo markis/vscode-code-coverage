@@ -137,7 +137,7 @@ export async function activate(context: ExtensionContext) {
       case `${packageInfo.name}.show`:
         return onShowCoverage();
     }
-  };
+  }
 
   async function onHideCoverage() {
     extensionConfiguration.showCoverage = false;
@@ -148,7 +148,7 @@ export async function activate(context: ExtensionContext) {
 
   async function onShowCoverage() {
     extensionConfiguration.showCoverage = true;
-    fileCoverageInfoProvider.showCoverage()
+    fileCoverageInfoProvider.showCoverage();
     await findDiagnosticsInWorkspace();
     coverageDecorations.displayCoverageDecorations();
   }
@@ -276,4 +276,4 @@ export async function activate(context: ExtensionContext) {
   };
 }
 
-async function noop() { }
+async function noop() {}
