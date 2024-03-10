@@ -13,6 +13,7 @@ import {
   ExtensionConfiguration,
 } from "./extension-configuration";
 import { Coverage } from "./coverage-info";
+import { debounce } from "./utils";
 
 const UNCOVERED_LINE_MESSAGE = "This line is missing code coverage.";
 
@@ -21,12 +22,21 @@ export interface CoverageDecoration {
   readonly decorationOptions: DecorationOptions[];
 }
 
+function createDecorationType(): TextEditorDecorationType {
+  return window.createTextEditorDecorationType({
+    isWholeLine: true,
+    overviewRulerLane: OverviewRulerLane.Full,
+    overviewRulerColor: { id: "markiscodecoverage.colorUncoveredLineRuler" },
+    backgroundColor: { id: "markiscodecoverage.colorUncoveredLineText" },
+  });
+}
+
 export class CoverageDecorations extends Disposable {
   constructor(
     private _config: ExtensionConfiguration,
     private _coverageByFile: Map<string, Coverage>,
     private _isDisposing = false,
-    private readonly _decorationType = CoverageDecorations._createDecorationType(),
+    private readonly _decorationType = createDecorationType(),
     private readonly _fileCoverageDecorations = new Map<
       string,
       DecorationOptions[]
@@ -41,27 +51,26 @@ export class CoverageDecorations extends Disposable {
       for (const listener of _listeners) listener.dispose();
     });
 
-    _listeners.push(
-      this._config.onConfigOptionUpdated((e) => {
-        if (
-          e &&
-          e === CONFIG_OPTION_SHOW_DECORATIONS &&
-          window.activeTextEditor
-        ) {
-          const activeFile = window.activeTextEditor.document.uri.fsPath;
-          const coverage = this._coverageByFile.get(activeFile);
+    const [debouncedFunc, debounceDispose] = debounce(
+      this.displayCoverageDecorations.bind(this),
+      100,
+    );
+    this.displayCoverageDecorations = debouncedFunc;
 
-          coverage && this._config.showDecorations
-            ? this.displayCoverageDecorations(coverage)
-            : this.clearAllDecorations();
-        }
-      }),
+    _listeners.push(
+      this._config.onConfigOptionUpdated(this.onConfigOptionUpdated.bind(this)),
+      debounceDispose,
     );
   }
 
-  /** Display coverage decorations in active text editor */
-  displayCoverageDecorations(coverage?: Coverage): void {
-    if (this._isDisposing) return;
+  /**
+   * @param coverage The coverage information to display decorations for
+   * @description Displays decorations for the uncovered lines in the coverage information.
+   * This method is debounced to prevent flickering when the file is loading.
+   * Debouncing is done by the constructor.
+   */
+  public displayCoverageDecorations(coverage?: Coverage): void {
+    if (this._isDisposing || !this._config.showDecorations) return;
 
     const activeTextEditor = window.activeTextEditor;
     if (!activeTextEditor) return;
@@ -71,7 +80,7 @@ export class CoverageDecorations extends Disposable {
       coverage = this._coverageByFile.get(file);
     }
     if (!decorations && coverage) {
-      decorations = this._mapDecorationOptions(coverage);
+      decorations = this.mapDecorationOptions(coverage);
       this._fileCoverageDecorations.set(file, decorations);
     }
     if (decorations) {
@@ -79,28 +88,61 @@ export class CoverageDecorations extends Disposable {
     }
   }
 
-  addDecorationsForFile(
+  /**
+   * @param file The file to add decorations for
+   * @param coverage The coverage information to add decorations for
+   * @returns The decoration options for the uncovered lines in the coverage information
+   * @description Adds decorations for the specified file based on the coverage information.
+   */
+  public addDecorationsForFile(
     file: string,
     coverage: Coverage,
   ): DecorationOptions[] | undefined {
-    if (this._isDisposing) return undefined;
+    if (this._isDisposing || !this._config.showDecorations) return undefined;
 
-    const decorations = this._mapDecorationOptions(coverage);
+    const decorations = this.mapDecorationOptions(coverage);
     this._fileCoverageDecorations.set(file, decorations);
     return decorations;
   }
 
-  removeDecorationsForFile(file: Uri): void {
+  /**
+   * @param file The file to remove decorations for
+   * @description Removes the decorations for the specified file.
+   */
+  public removeDecorationsForFile(file: Uri): void {
     if (this._isDisposing) return undefined;
 
     this._fileCoverageDecorations.delete(file.fsPath);
   }
 
-  /** Clears the decorations counter when changing active text editor. */
-  handleFileChange(): void {
+  /**
+   * @description Event is fired when the user changes the active text editor.
+   */
+  public onFileChange(): void {
     this.displayCoverageDecorations();
   }
 
+  /**
+   * @description Handle configuration option updated event.
+   * @param configOption The configuration option that was updated
+   */
+  private onConfigOptionUpdated(configOption: string): void {
+    if (
+      configOption === CONFIG_OPTION_SHOW_DECORATIONS &&
+      window.activeTextEditor
+    ) {
+      const activeFile = window.activeTextEditor.document.uri.fsPath;
+      const coverage = this._coverageByFile.get(activeFile);
+
+      coverage && this._config.showDecorations
+        ? this.displayCoverageDecorations(coverage)
+        : this.clearAllDecorations();
+    }
+  }
+
+  /**
+   * @description Clears all decorations from all files.
+   */
   clearAllDecorations(): void {
     if (this._isDisposing) return undefined;
 
@@ -111,60 +153,41 @@ export class CoverageDecorations extends Disposable {
     });
   }
 
-  /** Maps diagnostics to decoration options. */
-  private _mapDecorationOptions(coverage: Coverage): DecorationOptions[] {
-    if (this._isDisposing || !this._config.showDecorations) {
-      return [];
-    }
+  /**
+   * @param coverage The coverage information to map to decoration options
+   * @returns The decoration options for the uncovered lines in the coverage information
+   * @description This method maps the coverage information to decoration options for the uncovered lines.
+   */
+  private mapDecorationOptions(coverage: Coverage): DecorationOptions[] {
+    return (
+      coverage.lines.details
+        // Filter out lines that are covered
+        .filter((line) => line.hit === 0)
+        // Convert LineCoverageInfo to line numbers
+        .map((line) => line.line - 1)
+        // Sort the line numbers
+        .sort((a, b) => a - b)
+        // Convert line numbers to ranges
+        .reduce((result: Array<[number, number]>, num: number) => {
+          // Convert a list of numbers to a list of ranges
+          // e.g. [1,2,3,5,6,7,9] => [[1,3],[5,7],[9,9]]
+          const lastGroup = result[result.length - 1];
 
-    const lineNums = coverage.lines.details
-      .filter((line) => line.hit === 0)
-      .map((line) => line.line - 1);
-    const groupedLines = this.groupConsecutiveNumbers(lineNums);
-    const decorations: DecorationOptions[] = [];
-    for (const [start, end] of groupedLines) {
-      const decoration = CoverageDecorations.makeDecoration(start, end);
-      decorations.push(decoration);
-    }
-    return decorations;
-  }
+          if (!lastGroup) {
+            result.push([num, num]);
+          } else if (num === lastGroup[1] + 1) {
+            lastGroup[1] = num;
+          } else {
+            result.push([num, num]);
+          }
 
-  private groupConsecutiveNumbers(numbers: number[]): Array<[number, number]> {
-    const sortedNumbers = numbers.sort((a, b) => a - b);
-    const result: Array<[number, number]> = [];
-    let currentGroup: [number, number] | null = null;
-
-    for (const num of sortedNumbers) {
-      if (!currentGroup) {
-        currentGroup = [num, num];
-      } else if (num === currentGroup[1] + 1) {
-        currentGroup[1] = num;
-      } else {
-        result.push(currentGroup);
-        currentGroup = [num, num];
-      }
-    }
-
-    if (currentGroup) {
-      result.push(currentGroup);
-    }
-
-    return result;
-  }
-
-  private static makeDecoration(start: number, end: number) {
-    return {
-      hoverMessage: new MarkdownString(UNCOVERED_LINE_MESSAGE),
-      range: new Range(start, 1, end, 1),
-    };
-  }
-
-  private static _createDecorationType(): TextEditorDecorationType {
-    return window.createTextEditorDecorationType({
-      isWholeLine: true,
-      overviewRulerLane: OverviewRulerLane.Full,
-      overviewRulerColor: { id: "markiscodecoverage.colorUncoveredLineRuler" },
-      backgroundColor: { id: "markiscodecoverage.colorUncoveredLineText" },
-    });
+          return result;
+        }, [])
+        // Convert ranges to decoration options
+        .map(([start, end]) => ({
+          hoverMessage: new MarkdownString(UNCOVERED_LINE_MESSAGE),
+          range: new Range(start, 1, end, 1),
+        }))
+    );
   }
 }

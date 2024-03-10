@@ -26,6 +26,7 @@ import {
 import { parse as parseLcov } from "./parse-lcov";
 import { CoverageDecorations } from "./coverage-decorations";
 import { FileCoverageInfoProvider } from "./file-coverage-info-provider";
+import { debounce } from "./utils";
 
 export let onCommand: (cmd: string) => Promise<void> = noop;
 
@@ -72,6 +73,12 @@ export async function activate(context: ExtensionContext) {
   const fileCoverageInfoProviderRegistration =
     window.registerFileDecorationProvider(fileCoverageInfoProvider);
 
+  // Debounce the showStatusAndDecorations function to prevent it from running too often
+  const [showStatusAndDecorations, showStatusAndDecorationsTeardown] = debounce(
+    _showStatusAndDecorations,
+    10,
+  );
+
   context.subscriptions.push(
     extensionConfiguration,
     diagnostics,
@@ -81,6 +88,7 @@ export async function activate(context: ExtensionContext) {
     hideCommand,
     fileCoverageInfoProviderRegistration,
     fileCoverageInfoProvider,
+    showStatusAndDecorationsTeardown,
   );
 
   // Update status bar on changes to any open file
@@ -106,7 +114,7 @@ export async function activate(context: ExtensionContext) {
     }
   });
   window.onDidChangeActiveTextEditor(() => {
-    coverageDecorations.handleFileChange();
+    coverageDecorations.onFileChange();
     showStatusAndDecorations();
   });
 
@@ -175,7 +183,7 @@ export async function activate(context: ExtensionContext) {
   }
 
   // Show the coverage in the VSCode status bar at the bottom
-  function showStatusAndDecorations() {
+  function _showStatusAndDecorations() {
     const activeTextEditor = window.activeTextEditor;
     if (!activeTextEditor) {
       statusBar.hide();
