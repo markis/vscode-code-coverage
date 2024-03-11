@@ -4,25 +4,31 @@ import {
   commands,
   extensions,
   languages,
-  StatusBarItem,
   Uri,
   window,
   workspace,
   Extension,
   ConfigurationTarget,
+  CancellationToken,
 } from "vscode";
+import { ExtensionExports } from "../../src/extension";
 import {
   CONFIG_OPTION_SHOW_DECORATIONS,
   CONFIG_SECTION_NAME,
 } from "../../src/extension-configuration";
+import { Coverage } from "../../src/coverage-info";
 
 suite("code-coverage", function () {
   this.timeout(60000);
   const exampleWorkspace = join(__dirname, "../../../", "example");
   const exampleWorkspaceUri = Uri.file(exampleWorkspace);
   const exampleIndexUri = Uri.file(join(exampleWorkspace, "index.ts"));
-  let extension: Extension<any> | undefined;
+  const exampleIndexFile = exampleIndexUri.fsPath;
+  let extension: Extension<ExtensionExports> | undefined;
   let onCommand: (cmd: string) => Promise<void> | undefined;
+  let exports: ExtensionExports | undefined;
+  let exampleCoverage: Coverage | undefined;
+  let exampleCancelToken: CancellationToken;
 
   setup(async () => {
     // Open the example workspace and open the example index file
@@ -30,10 +36,19 @@ suite("code-coverage", function () {
     const doc = await workspace.openTextDocument(exampleIndexUri);
     await window.showTextDocument(doc);
     extension = extensions.getExtension("markis.code-coverage");
-    onCommand = extension?.exports.onCommand;
+    exports = await extension?.activate();
+    onCommand = exports?.onCommand ? exports.onCommand : async () => {};
+    exampleCoverage = exports?.coverageByFile.get(exampleIndexFile);
+    exampleCancelToken = {
+      isCancellationRequested: false,
+      onCancellationRequested: () => {
+        return { dispose: () => {} };
+      },
+    };
   });
 
   teardown(async () => {
+    exports?.coverageDecorations.clearAllDecorations();
     await workspace
       .getConfiguration("markiscodecoverage")
       .update("searchCriteria", undefined);
@@ -43,11 +58,6 @@ suite("code-coverage", function () {
     // All done, close the editor
     commands.executeCommand("workbench.action.closeActiveEditor");
   });
-
-  this.afterEach = () => {
-    extension?.exports.coverageDecorations.clearAllDecorations();
-    return this;
-  };
 
   test("check diagnostics exist", async () => {
     // Check to see if the diagnostics exist for the example file
@@ -59,27 +69,27 @@ suite("code-coverage", function () {
 
   test("check decorations can be generated from diagnostics and retrieved", async () => {
     const configuration = workspace.getConfiguration(CONFIG_SECTION_NAME);
-    configuration
-      .update(CONFIG_OPTION_SHOW_DECORATIONS, true, ConfigurationTarget.Global)
-      .then(() => {
-        const diagnostics = languages.getDiagnostics(exampleIndexUri);
-        extension?.exports.coverageDecorations.addDecorationsForFile(
-          exampleIndexUri,
-          diagnostics,
-        );
-        const decorationSpec =
-          extension?.exports.coverageDecorations.getDecorationsForFile(
-            exampleIndexUri,
-          );
-        assert.notEqual(decorationSpec, undefined);
-        assert.strictEqual(decorationSpec.decorationOptions.length, 1);
-      });
+    await configuration.update(
+      CONFIG_OPTION_SHOW_DECORATIONS,
+      true,
+      ConfigurationTarget.Global,
+    );
+
+    assert.ok(exampleCoverage);
+    const decorations = exports?.coverageDecorations.addDecorationsForFile(
+      exampleIndexFile,
+      exampleCoverage,
+    );
+
+    assert.ok(decorations);
+    assert.strictEqual(decorations.length, 1);
   });
 
   test("check status bar", async () => {
     // Check to see if the status bar is updated correctly
     // the example coverage should cover 3 out of 4 lines - "3/4"
-    const statusBar: StatusBarItem = extension?.exports.statusBar;
+    const statusBar = exports?.statusBar;
+    assert.ok(statusBar);
     assert.ok(statusBar.text);
     assert.ok(statusBar.text.includes("3/4"));
   });
@@ -132,32 +142,34 @@ suite("code-coverage", function () {
     await workspace
       .getConfiguration("markiscodecoverage")
       .update("coverageThreshold", 100);
-    const decoration =
-      extension?.exports.fileCoverageInfoProvider.provideFileDecoration(
-        exampleIndexUri,
-      );
-    assert.notEqual(decoration, undefined);
+    const exports = await extension?.activate();
+    const decoration = exports?.fileCoverageInfoProvider.provideFileDecoration(
+      exampleIndexUri,
+      exampleCancelToken,
+    );
+    assert.ok(decoration);
   });
 
   test("test will not generate file decorations from the coverage file when above threshold", async () => {
     await workspace
       .getConfiguration("markiscodecoverage")
       .update("coverageThreshold", 25);
-    const decoration =
-      extension?.exports.fileCoverageInfoProvider.provideFileDecoration(
-        exampleIndexUri,
-      );
-    assert.strictEqual(decoration, undefined);
+    const exports = await extension?.activate();
+    const decoration = exports?.fileCoverageInfoProvider.provideFileDecoration(
+      exampleIndexUri,
+      exampleCancelToken,
+    );
+    assert.ok(!decoration);
   });
 
   test("test will hide file decorations when above threshold", async () => {
     await workspace
       .getConfiguration("markiscodecoverage")
       .update("coverageThreshold", 25);
-    const decoration =
-      extension?.exports.fileCoverageInfoProvider.provideFileDecoration(
-        exampleIndexUri,
-      );
-    assert.strictEqual(decoration, undefined);
+    const decoration = exports?.fileCoverageInfoProvider.provideFileDecoration(
+      exampleIndexUri,
+      exampleCancelToken,
+    );
+    assert.ok(!decoration);
   });
 });

@@ -8,6 +8,7 @@ import {
   Position,
   Range,
   RelativePattern,
+  StatusBarItem,
   Uri,
   window,
   workspace,
@@ -34,7 +35,18 @@ export async function deactivate() {
   onCommand = noop;
 }
 
-export async function activate(context: ExtensionContext) {
+export interface ExtensionExports {
+  coverageByFile: Map<string, Coverage>;
+  onCommand: (cmd: string) => Promise<void>;
+  statusBar: StatusBarItem;
+  coverageDecorations: CoverageDecorations;
+  fileCoverageInfoProvider: FileCoverageInfoProvider;
+  extensionConfiguration: ExtensionConfiguration;
+}
+
+export async function activate(
+  context: ExtensionContext,
+): Promise<ExtensionExports> {
   const packageInfo = require(join(context.extensionPath, "package.json"));
   const diagnostics = languages.createDiagnosticCollection("coverage");
   const statusBar = window.createStatusBarItem();
@@ -276,6 +288,7 @@ export async function activate(context: ExtensionContext) {
 
   // exports - accessible to tests
   return {
+    coverageByFile,
     onCommand,
     statusBar,
     coverageDecorations,
