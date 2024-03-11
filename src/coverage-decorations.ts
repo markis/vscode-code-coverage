@@ -15,13 +15,58 @@ import {
 import { Coverage } from "./coverage-info";
 import { debounce } from "./utils";
 
-const UNCOVERED_LINE_MESSAGE = "This line is missing code coverage.";
+export const UNCOVERED_LINE_MESSAGE = "This line is missing code coverage.";
 
 export interface CoverageDecoration {
   readonly decorationType: TextEditorDecorationType;
   readonly decorationOptions: DecorationOptions[];
 }
 
+/**
+ * @param coverage The coverage information to map to decoration options
+ * @returns The decoration options for the uncovered lines in the coverage information
+ * @description This method maps the coverage information to decoration options for the uncovered lines.
+ * exported for testing purposes
+ */
+export function mapDecorationOptions(coverage: Coverage): DecorationOptions[] {
+  if (!coverage?.lines?.details || !coverage?.lines?.found) return [];
+  return (
+    coverage.lines.details
+      // Filter out lines that are covered
+      .filter((line) => line.hit === 0)
+      // Convert LineCoverageInfo to line numbers
+      .map((line) => line.line - 1)
+      // Sort the line numbers
+      .sort((a, b) => a - b)
+      // Convert line numbers to ranges
+      .reduce((result: Array<[number, number]>, num: number) => {
+        // Convert a list of numbers to a list of ranges
+        // e.g. [1,2,3,5,6,7,9] => [[1,3],[5,7],[9,9]]
+        const lastGroup = result[result.length - 1];
+
+        if (!lastGroup) {
+          result.push([num, num]);
+        } else if (num === lastGroup[1] + 1) {
+          lastGroup[1] = num;
+        } else {
+          result.push([num, num]);
+        }
+
+        return result;
+      }, [])
+      // Convert ranges to decoration options
+      .map(([start, end]) => ({
+        hoverMessage: new MarkdownString(UNCOVERED_LINE_MESSAGE),
+        range: new Range(start, 1, end, 1),
+      }))
+  );
+}
+
+/**
+ * @returns A new TextEditorDecorationType
+ * @description Creates a new TextEditorDecorationType for uncovered lines
+ * in the coverage information.
+ */
 function createDecorationType(): TextEditorDecorationType {
   return window.createTextEditorDecorationType({
     isWholeLine: true,
@@ -80,7 +125,7 @@ export class CoverageDecorations extends Disposable {
       coverage = this._coverageByFile.get(file);
     }
     if (!decorations && coverage) {
-      decorations = this.mapDecorationOptions(coverage);
+      decorations = mapDecorationOptions(coverage);
       this._fileCoverageDecorations.set(file, decorations);
     }
     if (decorations) {
@@ -100,7 +145,7 @@ export class CoverageDecorations extends Disposable {
   ): DecorationOptions[] | undefined {
     if (this._isDisposing || !this._config.showDecorations) return undefined;
 
-    const decorations = this.mapDecorationOptions(coverage);
+    const decorations = mapDecorationOptions(coverage);
     this._fileCoverageDecorations.set(file, decorations);
     return decorations;
   }
@@ -113,6 +158,19 @@ export class CoverageDecorations extends Disposable {
     if (this._isDisposing) return undefined;
 
     this._fileCoverageDecorations.delete(file.fsPath);
+  }
+
+  /**
+   * @description Clears all decorations from all files.
+   */
+  public clearAllDecorations(): void {
+    if (this._isDisposing) return undefined;
+
+    this._fileCoverageDecorations.clear();
+    window.activeTextEditor?.setDecorations(this._decorationType, []);
+    window.visibleTextEditors.forEach((editor) => {
+      editor.setDecorations(this._decorationType, []);
+    });
   }
 
   /**
@@ -138,56 +196,5 @@ export class CoverageDecorations extends Disposable {
         ? this.displayCoverageDecorations(coverage)
         : this.clearAllDecorations();
     }
-  }
-
-  /**
-   * @description Clears all decorations from all files.
-   */
-  clearAllDecorations(): void {
-    if (this._isDisposing) return undefined;
-
-    this._fileCoverageDecorations.clear();
-    window.activeTextEditor?.setDecorations(this._decorationType, []);
-    window.visibleTextEditors.forEach((editor) => {
-      editor.setDecorations(this._decorationType, []);
-    });
-  }
-
-  /**
-   * @param coverage The coverage information to map to decoration options
-   * @returns The decoration options for the uncovered lines in the coverage information
-   * @description This method maps the coverage information to decoration options for the uncovered lines.
-   */
-  private mapDecorationOptions(coverage: Coverage): DecorationOptions[] {
-    return (
-      coverage.lines.details
-        // Filter out lines that are covered
-        .filter((line) => line.hit === 0)
-        // Convert LineCoverageInfo to line numbers
-        .map((line) => line.line - 1)
-        // Sort the line numbers
-        .sort((a, b) => a - b)
-        // Convert line numbers to ranges
-        .reduce((result: Array<[number, number]>, num: number) => {
-          // Convert a list of numbers to a list of ranges
-          // e.g. [1,2,3,5,6,7,9] => [[1,3],[5,7],[9,9]]
-          const lastGroup = result[result.length - 1];
-
-          if (!lastGroup) {
-            result.push([num, num]);
-          } else if (num === lastGroup[1] + 1) {
-            lastGroup[1] = num;
-          } else {
-            result.push([num, num]);
-          }
-
-          return result;
-        }, [])
-        // Convert ranges to decoration options
-        .map(([start, end]) => ({
-          hoverMessage: new MarkdownString(UNCOVERED_LINE_MESSAGE),
-          range: new Range(start, 1, end, 1),
-        }))
-    );
   }
 }
