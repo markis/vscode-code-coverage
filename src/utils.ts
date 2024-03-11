@@ -20,26 +20,3 @@ export function debounce<A>(
 
   return [debouncedFunc, teardown];
 }
-
-/**
- * Creates a debounced function that delays execution by the specified time.
- * @param ms The debounce time in milliseconds.
- * @returns A decorator function that debounces the method it decorates.
- */
-export function Debounce(ms: number) {
-  let timer: NodeJS.Timeout;
-
-  return function (_: any, __: string, descriptor: PropertyDescriptor) {
-    const originalMethod = descriptor.value;
-
-    descriptor.value = function (...args: any[]) {
-      if (timer) {
-        clearTimeout(timer);
-      }
-
-      timer = setTimeout(() => originalMethod.apply(this, args), ms);
-    };
-
-    return descriptor;
-  };
-}
