@@ -67,24 +67,6 @@ suite("code-coverage", function () {
     assert.strictEqual(diagnostics[0].range.start.line, 5);
   });
 
-  test("check decorations can be generated from diagnostics and retrieved", async () => {
-    const configuration = workspace.getConfiguration(CONFIG_SECTION_NAME);
-    await configuration.update(
-      CONFIG_OPTION_SHOW_DECORATIONS,
-      true,
-      ConfigurationTarget.Global,
-    );
-
-    assert.ok(exampleCoverage);
-    const decorations = exports?.coverageDecorations.addDecorationsForFile(
-      exampleIndexFile,
-      exampleCoverage,
-    );
-
-    assert.ok(decorations);
-    assert.strictEqual(decorations.length, 1);
-  });
-
   test("check status bar", async () => {
     // Check to see if the status bar is updated correctly
     // the example coverage should cover 3 out of 4 lines - "3/4"
@@ -136,6 +118,24 @@ suite("code-coverage", function () {
       extension?.exports.extensionConfiguration.coverageThreshold,
       initialValue,
     );
+  });
+
+  test("check decorations can be generated from coverage", async () => {
+    const configuration = workspace.getConfiguration(CONFIG_SECTION_NAME);
+    await configuration.update(
+      CONFIG_OPTION_SHOW_DECORATIONS,
+      true,
+      ConfigurationTarget.Global,
+    );
+
+    assert.ok(exampleCoverage);
+    const decorations = exports?.coverageDecorations.addDecorationsForFile(
+      exampleIndexFile,
+      exampleCoverage,
+    );
+
+    assert.ok(decorations);
+    assert.strictEqual(decorations.length, 1);
   });
 
   test("test can generate file decorations from the coverage file when below threshold", async () => {

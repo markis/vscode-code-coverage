@@ -25,8 +25,14 @@ type FileDecorationsEmitterType = EventEmitter<UriEventEmitterType> | undefined;
  * @description This method calculates the coverage percentage based on the number of lines hit and the number of lines found.
  */
 function calculateCoveragePercent(coverage: Coverage): number {
-  const lines = coverage.lines;
-  return Math.floor((lines.hit / lines.found) * 100);
+  const { hit, found } = coverage.lines;
+  const result = Math.floor((hit / found) * 100);
+  if (isNaN(result) || !isFinite(result) || result < 0) {
+    return 0;
+  } else if (result > 100) {
+    return 100;
+  }
+  return result;
 }
 
 /**
