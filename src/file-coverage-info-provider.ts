@@ -1,7 +1,6 @@
 import {
   CancellationToken,
   Disposable,
-  Event,
   EventEmitter,
   FileDecoration,
   FileDecorationProvider,
@@ -14,127 +13,128 @@ import {
   ExtensionConfiguration,
 } from "./extension-configuration";
 import { Coverage } from "./coverage-info";
-import * as os from "node:os";
-
-const isWindows = () => os.type() === "Windows_NT";
 
 const FILE_DECORATION_BADGE = "<%";
 const FILE_DECORATION_TOOLTIP_PRELUDE = "Insufficent Code Coverage:";
+type UriEventEmitterType = Uri[] | undefined;
+type FileDecorationsEmitterType = EventEmitter<UriEventEmitterType> | undefined;
 
+/**
+ * @param lines The coverage data for a file
+ * @returns The coverage percentage
+ * @description This method calculates the coverage percentage based on the number of lines hit and the number of lines found.
+ */
+function calculateCoveragePercent(coverage: Coverage): number {
+  const { hit, found } = coverage.lines;
+  const result = Math.floor((hit / found) * 100);
+  if (isNaN(result) || !isFinite(result) || result < 0) {
+    return 0;
+  } else if (result > 100) {
+    return 100;
+  }
+  return result;
+}
+
+/**
+ * This class provides file decorations for the Explore View based on code coverage.
+ * It listens for changes to the coverage threshold and regenerates the file decorations when it changes.
+ */
 export class FileCoverageInfoProvider
   extends Disposable
   implements FileDecorationProvider
 {
-  private readonly _onDidChangeFileDecorations = new EventEmitter<
-    Uri | Uri[] | undefined
-  >();
-  private readonly _coverageByFile: Map<string, Coverage>;
-  private _listener: Disposable;
-  private _isDisposed = false;
-  private _showFileDecorations = true;
-  private _coverageThreshold = 0;
-
   constructor(
-    readonly configuration: ExtensionConfiguration,
-    readonly coverageByFile: Map<string, Coverage>,
+    private readonly _configuration: ExtensionConfiguration,
+    private readonly _coverageByFile: Map<string, Coverage>,
+    private _showFileDecorations = _configuration.showDecorations,
+    private _coverageThreshold = _configuration.coverageThreshold,
+    private _isDisposing = false,
+    private _fileDecorationsEmitter: FileDecorationsEmitterType = new EventEmitter<UriEventEmitterType>(),
+    public readonly onDidChangeFileDecorations = _fileDecorationsEmitter.event,
+    _listeners: Disposable[] = [_fileDecorationsEmitter],
   ) {
-    // use dummy function for callOnDispose since dispose() will be overrided
-    super(() => true);
-
-    this._coverageByFile = coverageByFile;
-    this._coverageThreshold = configuration.coverageThreshold;
+    super(() => {
+      this._isDisposing = true;
+      for (const listener of _listeners) listener.dispose();
+      delete this._fileDecorationsEmitter;
+    });
 
     // Watch for updates to coverage threshold and regenerate when its updated
-    this._listener = configuration.onConfigOptionUpdated((e) => {
-      if (
-        e &&
-        e === CONFIG_OPTION_COVERAGE_THRESHOLD &&
-        configuration.coverageThreshold !== this._coverageThreshold
-      ) {
-        this._coverageThreshold = configuration.coverageThreshold;
-        this.changeFileDecorations(Array.from(this._coverageByFile.keys()));
-      }
-    });
-  }
-
-  public override dispose(): void {
-    if (!this._isDisposed) {
-      this._onDidChangeFileDecorations.dispose();
-      this._listener.dispose();
-
-      this._isDisposed = true;
-    }
-  }
-
-  // Toggle display of the decorations in Explore View
-  get showFileDecorations(): boolean {
-    this._checkDisposed();
-    return this._showFileDecorations;
-  }
-  set showFileDecorations(value: boolean) {
-    this._checkDisposed();
-    this._showFileDecorations = value;
-  }
-
-  // The event that window.registerFileDecorationProvider() subscribes to
-  get onDidChangeFileDecorations(): Event<Uri | Uri[] | undefined> {
-    this._checkDisposed();
-    return this._onDidChangeFileDecorations.event;
-  }
-
-  // Either decorates or undecorates a file within the Explore View
-  provideFileDecoration(
-    uri: Uri,
-    _token: CancellationToken,
-  ): ProviderResult<FileDecoration> {
-    this._checkDisposed();
-
-    if (!this.showFileDecorations) {
-      return;
-    }
-
-    let path = uri.fsPath;
-    // Uri.file() might lowercase the drive letter on some machines which might not match coverageByFile's keys
-    // Encountered this issue on a Windows 11 machine but not my main Windows 10 system...
-    if (!this._coverageByFile.has(path) && isWindows()) {
-      path = path.charAt(0).toUpperCase().concat(path.substring(1));
-    }
-
-    const coverage = this._coverageByFile.get(path);
-    if (coverage === undefined) {
-      return;
-    }
-
-    const { lines } = coverage;
-    const percentCovered = Math.floor((lines.hit / lines.found) * 100);
-
-    if (percentCovered < this._coverageThreshold) {
-      return new FileDecoration(
-        FILE_DECORATION_BADGE,
-        `${FILE_DECORATION_TOOLTIP_PRELUDE} ${percentCovered}% vs. ${this._coverageThreshold}%.`,
-        new ThemeColor("markiscodecoverage.insufficientCoverageForeground"),
-      );
-    }
-
-    return;
-  }
-
-  // Fire the onDidChangeFileDecorations event for the specified file(s)
-  changeFileDecorations(fsPaths: string | string[]): void {
-    this._checkDisposed();
-
-    if (typeof fsPaths === "string") {
-      this._onDidChangeFileDecorations.fire([Uri.file(fsPaths)]);
-    }
-
-    this._onDidChangeFileDecorations.fire(
-      (fsPaths as string[]).map((p) => Uri.file(p)),
+    _listeners.push(
+      _configuration.onConfigOptionUpdated(this.handleConfigUpdate.bind(this)),
     );
   }
 
-  private _checkDisposed() {
-    if (this._isDisposed) {
-      throw new Error("illegal state - object is disposed");
+  /**
+   * @description This method shows the file decorations for the Explore View.
+   */
+  public showCoverage(): void {
+    this._showFileDecorations = true;
+    this.updateFileDecorations();
+  }
+
+  /**
+   * @description This method hides the file decorations for the Explore View.
+   */
+  public hideCoverage(): void {
+    this._showFileDecorations = false;
+    this.updateFileDecorations();
+  }
+
+  /**
+   * @param fsPaths The file(s) to decorate
+   * @description This method is called by the extension to fire the onDidChangeFileDecorations event for the specified file(s).
+   */
+  public updateFileDecorations(): void {
+    if (this._isDisposing || !this._fileDecorationsEmitter) return;
+
+    const uris = Array.from(this._coverageByFile.keys()).map((path) =>
+      Uri.file(path),
+    );
+    this._fileDecorationsEmitter.fire(uris);
+  }
+
+  /**
+   * @param uri The file to decorate
+   * @param _token
+   * @returns The decoration to apply to the file
+   * @description This method is called by VSCode to decorate a file in the Explore View.
+   */
+  public provideFileDecoration(
+    uri: Uri,
+    _token: CancellationToken,
+  ): ProviderResult<FileDecoration> {
+    if (this._isDisposing || !this._showFileDecorations) return;
+
+    const coverage = this._coverageByFile.get(uri.fsPath);
+    if (coverage) {
+      const percentCovered = calculateCoveragePercent(coverage);
+      if (percentCovered < this._coverageThreshold) {
+        return new FileDecoration(
+          FILE_DECORATION_BADGE,
+          `${FILE_DECORATION_TOOLTIP_PRELUDE} ${percentCovered}% vs. ${this._coverageThreshold}%.`,
+          new ThemeColor("markiscodecoverage.insufficientCoverageForeground"),
+        );
+      }
     }
+  }
+
+  /**
+   * @param e The configuration option that was updated
+   * @description This method is called when a configuration option is updated.
+   * It checks if the coverage threshold was updated and updates the coverage threshold if it was.
+   * It then regenerates the file decorations.
+   */
+  private handleConfigUpdate(e: string): void {
+    if (
+      this._isDisposing ||
+      e !== CONFIG_OPTION_COVERAGE_THRESHOLD ||
+      this._coverageThreshold === this._configuration.coverageThreshold
+    ) {
+      return;
+    }
+
+    this._coverageThreshold = this._configuration.coverageThreshold;
+    this.updateFileDecorations();
   }
 }

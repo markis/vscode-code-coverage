@@ -74,6 +74,11 @@
           "type": "boolean",
           "default": true,
           "description": "Enable code coverage on startup"
+        },
+        "markiscodecoverage.enableDecorations": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable highlights for uncovered lines (on top of diagnostics)"
         }
       }
     },
@@ -96,27 +101,27 @@
         "id": "markiscodecoverage.colorUncoveredLineRuler",
         "description": "Decoration color for uncovered lines",
         "defaults": {
-          "dark": "#FF7F27BF",
-          "light": "#FF7F27FF",
-          "highContrast": "#FF7F27FF"
+          "dark": "editorInfo.background",
+          "light": "editorInfo.background",
+          "highContrast": "editorInfo.background"
         }
       },
       {
         "id": "markiscodecoverage.colorUncoveredLineText",
         "description": "Decoration color for uncovered lines",
         "defaults": {
-          "dark": "#FF7F2750",
-          "light": "#FF7F2750",
-          "highContrast": "#FF7F2750"
+          "dark": "editorInfo.foreground",
+          "light": "editorInfo.foreground",
+          "highContrast": "editorInfo.foreground"
         }
       },
       {
         "id": "markiscodecoverage.insufficientCoverageForeground",
         "description": "Decoration color for files with insufficient coverage",
         "defaults": {
-          "light": "#AD0707FF",
-          "dark": "#C74E39FF",
-          "highContrast": "#C74E39FF"
+          "dark": "editorError.foreground",
+          "light": "editorError.foreground",
+          "highContrast": "editorError.foreground"
         }
       }
     ]

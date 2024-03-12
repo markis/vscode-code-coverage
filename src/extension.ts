@@ -8,6 +8,7 @@ import {
   Position,
   Range,
   RelativePattern,
+  StatusBarItem,
   Uri,
   window,
   workspace,
@@ -26,6 +27,7 @@ import {
 import { parse as parseLcov } from "./parse-lcov";
 import { CoverageDecorations } from "./coverage-decorations";
 import { FileCoverageInfoProvider } from "./file-coverage-info-provider";
+import { debounce } from "./utils";
 
 export let onCommand: (cmd: string) => Promise<void> = noop;
 
@@ -33,10 +35,20 @@ export async function deactivate() {
   onCommand = noop;
 }
 
-export async function activate(context: ExtensionContext) {
+export interface ExtensionExports {
+  coverageByFile: Map<string, Coverage>;
+  onCommand: (cmd: string) => Promise<void>;
+  statusBar: StatusBarItem;
+  coverageDecorations: CoverageDecorations;
+  fileCoverageInfoProvider: FileCoverageInfoProvider;
+  extensionConfiguration: ExtensionConfiguration;
+}
+
+export async function activate(
+  context: ExtensionContext,
+): Promise<ExtensionExports> {
   const packageInfo = require(join(context.extensionPath, "package.json"));
   const diagnostics = languages.createDiagnosticCollection("coverage");
-  const coverageDecorations = new CoverageDecorations();
   const statusBar = window.createStatusBarItem();
   const hideCommand = commands.registerCommand(
     `${packageInfo.name}.hide`,
@@ -52,10 +64,10 @@ export async function activate(context: ExtensionContext) {
     workspace.getConfiguration(CONFIG_SECTION_NAME),
   );
   const workspaceFolders = workspace.workspaceFolders;
-
-  // When a workspace is first opened and already has an open document, the setDecoration method has to be called twice.
-  // If it is isn't, the user will have to tab between documents before the decorations will render.
-  let setDecorationsCounter = 0;
+  const coverageDecorations = new CoverageDecorations(
+    extensionConfiguration,
+    coverageByFile,
+  );
 
   // Register watchers and listen if the coverage file directory has changed
   registerWatchers();
@@ -73,6 +85,12 @@ export async function activate(context: ExtensionContext) {
   const fileCoverageInfoProviderRegistration =
     window.registerFileDecorationProvider(fileCoverageInfoProvider);
 
+  // Debounce the showStatusAndDecorations function to prevent it from running too often
+  const [showStatusAndDecorations, showStatusAndDecorationsTeardown] = debounce(
+    _showStatusAndDecorations,
+    10,
+  );
+
   context.subscriptions.push(
     extensionConfiguration,
     diagnostics,
@@ -82,6 +100,7 @@ export async function activate(context: ExtensionContext) {
     hideCommand,
     fileCoverageInfoProviderRegistration,
     fileCoverageInfoProvider,
+    showStatusAndDecorationsTeardown,
   );
 
   // Update status bar on changes to any open file
@@ -107,12 +126,13 @@ export async function activate(context: ExtensionContext) {
     }
   });
   window.onDidChangeActiveTextEditor(() => {
-    setDecorationsCounter = 0;
+    coverageDecorations.onFileChange();
     showStatusAndDecorations();
   });
 
   // Run the main routine at activation time as well
   await findDiagnosticsInWorkspace();
+  fileCoverageInfoProvider.updateFileDecorations();
 
   // Register watchers for file changes on coverage files to re-run the coverage parser
   function registerWatchers() {
@@ -130,56 +150,32 @@ export async function activate(context: ExtensionContext) {
     }
   }
 
-  onCommand = async function onCommand(cmd: string) {
+  async function onCommand(cmd: string) {
     switch (cmd) {
       case `${packageInfo.name}.hide`:
         return onHideCoverage();
       case `${packageInfo.name}.show`:
         return onShowCoverage();
     }
-  };
+  }
 
   async function onHideCoverage() {
     extensionConfiguration.showCoverage = false;
-    fileCoverageInfoProvider.showFileDecorations = false;
-    fileCoverageInfoProvider.changeFileDecorations(
-      Array.from(coverageByFile.keys()),
-    );
+    fileCoverageInfoProvider.hideCoverage();
     diagnostics.clear();
     coverageDecorations.clearAllDecorations();
-    // Disable rendering of decorations in editor view
-    window.activeTextEditor?.setDecorations(
-      coverageDecorations.decorationType,
-      [],
-    );
   }
 
   async function onShowCoverage() {
     extensionConfiguration.showCoverage = true;
-    fileCoverageInfoProvider.showFileDecorations = true;
+    fileCoverageInfoProvider.showCoverage();
     await findDiagnosticsInWorkspace();
-
-    // This ensures the decorations will show up again when switching back and forth between Show / Hide.
-    const activeTextEditor = window.activeTextEditor;
-    if (activeTextEditor !== undefined) {
-      const decorations = coverageDecorations.getDecorationsForFile(
-        activeTextEditor.document.uri,
-      );
-
-      if (decorations !== undefined) {
-        const { decorationType, decorationOptions } = decorations;
-        // Render decorations in editor view
-        activeTextEditor.setDecorations(decorationType, decorationOptions);
-      }
-    }
+    coverageDecorations.displayCoverageDecorations();
   }
 
   async function findDiagnosticsInWorkspace() {
     if (workspaceFolders) {
       await Promise.all(workspaceFolders.map(findDiagnostics));
-      fileCoverageInfoProvider.changeFileDecorations(
-        Array.from(coverageByFile.keys()),
-      );
     }
   }
 
@@ -195,54 +191,33 @@ export async function activate(context: ExtensionContext) {
       recordFileCoverage(coverages, workspaceFolder.uri.fsPath);
       convertDiagnostics(coverages, workspaceFolder.uri.fsPath);
     }
+    showStatusAndDecorations();
   }
 
   // Show the coverage in the VSCode status bar at the bottom
-  function showStatusAndDecorations() {
+  function _showStatusAndDecorations() {
     const activeTextEditor = window.activeTextEditor;
     if (!activeTextEditor) {
       statusBar.hide();
       return;
     }
     const file: string = activeTextEditor.document.uri.fsPath;
-    if (coverageByFile.has(file)) {
-      const coverage = coverageByFile.get(file);
-      if (coverage) {
-        const { lines } = coverage;
-        // Only want to call setDecorations at most 2 times.
-        if (setDecorationsCounter < 2) {
-          let decorations = coverageDecorations.getDecorationsForFile(
-            activeTextEditor.document.uri,
-          );
-
-          // If VSCode launches the workspace with already opened document, this ensures the decorations will appear along with the diagnostics.
-          if (decorations === undefined) {
-            coverageDecorations.addDecorationsForFile(
-              activeTextEditor.document.uri,
-              diagnostics.get(activeTextEditor.document.uri) ?? [],
-            );
-            decorations = coverageDecorations.getDecorationsForFile(
-              activeTextEditor.document.uri,
-            );
-          } else {
-            const { decorationType, decorationOptions } = decorations;
-            activeTextEditor.setDecorations(decorationType, decorationOptions);
-            setDecorationsCounter++;
-          }
-        }
-        statusBar.text = `Coverage: ${lines.hit}/${lines.found} lines`;
-        statusBar.show();
-      }
+    const coverage = coverageByFile.get(file);
+    if (coverage) {
+      const { lines } = coverage;
+      statusBar.text = `Coverage: ${lines.hit}/${lines.found} lines`;
+      statusBar.show();
+      coverageDecorations.displayCoverageDecorations(coverage);
     } else {
       statusBar.hide();
     }
   }
 
+  // Record the coverage information for each file
   function recordFileCoverage(
     coverages: CoverageCollection,
     workspaceFolder: string,
   ) {
-    coverageByFile.clear();
     for (const coverage of coverages) {
       const fileName = !isAbsolute(coverage.file)
         ? join(workspaceFolder, coverage.file)
@@ -250,7 +225,6 @@ export async function activate(context: ExtensionContext) {
 
       coverageByFile.set(fileName, coverage);
     }
-    showStatusAndDecorations();
   }
 
   // Takes parsed coverage information and turns it into diagnostics
@@ -274,7 +248,10 @@ export async function activate(context: ExtensionContext) {
         if (diagnosticsForFiles.length > 0) {
           const file = Uri.file(fileName);
           diagnostics.set(file, diagnosticsForFiles);
-          coverageDecorations.addDecorationsForFile(file, diagnosticsForFiles);
+          const coverage = coverageByFile.get(fileName);
+          if (coverage) {
+            coverageDecorations.addDecorationsForFile(fileName, coverage);
+          }
         } else {
           const file = Uri.file(fileName);
           diagnostics.delete(file);
@@ -311,6 +288,7 @@ export async function activate(context: ExtensionContext) {
 
   // exports - accessible to tests
   return {
+    coverageByFile,
     onCommand,
     statusBar,
     coverageDecorations,

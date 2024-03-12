@@ -1,7 +1,6 @@
 import {
   ConfigurationChangeEvent,
   Disposable,
-  Event,
   EventEmitter,
   WorkspaceConfiguration,
 } from "vscode";
@@ -10,6 +9,7 @@ export const CONFIG_SECTION_NAME = "markiscodecoverage";
 export const CONFIG_OPTION_ENABLE_ON_STARTUP = "enableOnStartup";
 export const CONFIG_OPTION_SEARCH_CRITERIA = "searchCriteria";
 export const CONFIG_OPTION_COVERAGE_THRESHOLD = "coverageThreshold";
+export const CONFIG_OPTION_SHOW_DECORATIONS = "enableDecorations";
 
 export const DEFAULT_SEARCH_CRITERIA = "coverage/lcov*.info";
 export const DEFAULT_CODE_COVERAGE_THRESHOLD = 80;
@@ -20,6 +20,7 @@ export class ExtensionConfiguration extends Disposable {
   private _showCoverage = true;
   private _searchCriteria = "";
   private _coverageThreshold = 0;
+  private _showDecorations = false;
 
   constructor(config: WorkspaceConfiguration) {
     // use dummy function for callOnDispose since dispose() will be overrided
@@ -40,6 +41,8 @@ export class ExtensionConfiguration extends Disposable {
     this.coverageThreshold =
       config.get(CONFIG_OPTION_COVERAGE_THRESHOLD) ??
       DEFAULT_CODE_COVERAGE_THRESHOLD;
+
+    this.showDecorations = config.get(CONFIG_OPTION_SHOW_DECORATIONS, false);
   }
 
   public override dispose(): void {
@@ -50,6 +53,11 @@ export class ExtensionConfiguration extends Disposable {
     }
   }
 
+  public onConfigOptionUpdated(listener: (e: string) => any): Disposable {
+    this._checkDisposed();
+    return this._onConfigOptionUpdated.event(listener);
+  }
+
   get showCoverage() {
     this._checkDisposed();
     return this._showCoverage;
@@ -57,6 +65,15 @@ export class ExtensionConfiguration extends Disposable {
   set showCoverage(value: boolean) {
     this._checkDisposed();
     this._showCoverage = value;
+  }
+
+  get showDecorations() {
+    this._checkDisposed();
+    return this._showDecorations;
+  }
+  set showDecorations(value: boolean) {
+    this._checkDisposed();
+    this._showDecorations = value;
   }
 
   get searchCriteria() {
@@ -75,11 +92,6 @@ export class ExtensionConfiguration extends Disposable {
   set coverageThreshold(value: number) {
     this._checkDisposed();
     this._coverageThreshold = value;
-  }
-
-  get onConfigOptionUpdated(): Event<string> {
-    this._checkDisposed();
-    return this._onConfigOptionUpdated.event;
   }
 
   dispatchConfigUpdate(
@@ -104,6 +116,13 @@ export class ExtensionConfiguration extends Disposable {
         this.coverageThreshold;
 
       this._onConfigOptionUpdated.fire(CONFIG_OPTION_COVERAGE_THRESHOLD);
+    } else if (this._hasBeenUpdated(evtSrc, CONFIG_OPTION_SHOW_DECORATIONS)) {
+      this.showDecorations = latestSnapshot.get(
+        CONFIG_OPTION_SHOW_DECORATIONS,
+        this.showDecorations,
+      );
+
+      this._onConfigOptionUpdated.fire(CONFIG_OPTION_SHOW_DECORATIONS);
     }
   }
 

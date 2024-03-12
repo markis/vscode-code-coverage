@@ -2,13 +2,12 @@ name: npm test
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
   build:
-
     strategy:
       matrix:
         node-version:
@@ -20,20 +19,20 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
-    - name: Setup xvfb for ubuntu
-      run: Xvfb :99 -screen 0 1024x768x24 > /dev/null &
-      if: matrix.os == 'ubuntu-latest'
+      - name: Setup xvfb for ubuntu
+        run: Xvfb :99 -screen 0 1024x768x24 > /dev/null &
+        if: matrix.os == 'ubuntu-latest'
 
-    - uses: actions/checkout@v2
-    - name: Use node ${{ matrix.node-version }}
-      uses: actions/setup-node@v1
-      with:
-        node-version: ${{ matrix.node-version }}
-    - run: npm ci
-    - run: npm run build --if-present
-    - run: npm run lint --if-present
-      if: matrix.os == 'ubuntu-latest'
-    - run: npm test
-      env:
-        CI: true
-        DISPLAY: :99.0
+      - uses: actions/checkout@v2
+      - name: Use node ${{ matrix.node-version }}
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+      - run: npm ci
+      - run: npm run build --if-present
+      - run: npm run lint --if-present
+        if: matrix.os == 'ubuntu-latest'
+      - run: npm test
+        env:
+          CI: true
+          DISPLAY: :99.0
