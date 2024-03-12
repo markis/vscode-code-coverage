@@ -9,7 +9,7 @@ import {
   Uri,
 } from "vscode";
 import {
-  CONFIG_OPTION_COVERAGE_THRESHOLD,
+  ConfigurationOptions,
   ExtensionConfiguration,
 } from "./extension-configuration";
 import { Coverage } from "./coverage-info";
@@ -128,7 +128,7 @@ export class FileCoverageInfoProvider
   private handleConfigUpdate(e: string): void {
     if (
       this._isDisposing ||
-      e !== CONFIG_OPTION_COVERAGE_THRESHOLD ||
+      e !== ConfigurationOptions.coverageThreshold ||
       this._coverageThreshold === this._configuration.coverageThreshold
     ) {
       return;

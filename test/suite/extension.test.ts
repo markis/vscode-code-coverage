@@ -13,7 +13,7 @@ import {
 } from "vscode";
 import { ExtensionExports } from "../../src/extension";
 import {
-  CONFIG_OPTION_SHOW_DECORATIONS,
+  ConfigurationOptions,
   CONFIG_SECTION_NAME,
 } from "../../src/extension-configuration";
 import { Coverage } from "../../src/coverage-info";
@@ -123,7 +123,7 @@ suite("code-coverage", function () {
   test("check decorations can be generated from coverage", async () => {
     const configuration = workspace.getConfiguration(CONFIG_SECTION_NAME);
     await configuration.update(
-      CONFIG_OPTION_SHOW_DECORATIONS,
+      ConfigurationOptions.showDecorations,
       true,
       ConfigurationTarget.Global,
     );

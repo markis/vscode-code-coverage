@@ -115,7 +115,7 @@ export async function parse(file: string): Promise<CoverageCollection> {
     !existsSync(file)
       ? reject(new Error(`File not found: ${file}`))
       : readFile(file, "utf8", (_, str) => {
-        resolve(parseFile(str));
-      });
+          resolve(parseFile(str));
+        });
   });
 }
