@@ -2,7 +2,7 @@ import { existsSync, readFile } from "fs";
 import { Coverage, CoverageCollection } from "./coverage-info";
 
 type MetricsMap = {
-  [key: string]: (item: Coverage, args: string) => void;
+  [key: string]: (item: Coverage, value: string) => void;
 };
 
 /**
@@ -34,41 +34,43 @@ function createCoverageItem(): Coverage {
  * @description This object maps lcov metrics to a handler function.
  */
 const metricsMap: MetricsMap = {
-  TN: (item: Coverage, args: string) => (item.title = args.trim()),
-  SF: (item: Coverage, args: string) => (item.file = args.trim()),
-  LF: (item: Coverage, args: string) =>
-    (item.lines.found = Number(args.trim())),
-  LH: (item: Coverage, args: string) => (item.lines.hit = Number(args.trim())),
-  DA: (item: Coverage, args: string) => {
-    const details = args.split(",");
-    item.lines.details.push({
-      line: Number(details[0]),
-      hit: Number(details[1]),
-    });
+  TN: (item, val) => {
+    item.title = val;
   },
-  FNF: (item: Coverage, args: string) =>
-    (item.functions.found = Number(args.trim())),
-  FNH: (item: Coverage, args: string) =>
-    (item.functions.hit = Number(args.trim())),
-  FNDA: (item: Coverage, args: string) => {
-    const details = args.split(",");
-    item.functions.details.push({
-      line: Number(details[0]),
-      name: details[1],
-    });
+  SF: (item, val) => {
+    item.file = val;
   },
-  BRF: (item: Coverage, args: string) =>
-    (item.branches.found = Number(args.trim())),
-  BRH: (item: Coverage, args: string) =>
-    (item.branches.hit = Number(args.trim())),
-  BRDA: (item: Coverage, args: string) => {
-    const details = args.split(",");
-    item.branches.details.push({
-      line: Number(details[0]),
-      block: Number(details[1]),
-      branch: Number(details[2]),
-      hit: details[3] === "-" ? 0 : Number(details[3]),
-    });
+  LF: (item, val) => {
+    item.lines.found = Number(val);
+  },
+  LH: (item, val) => {
+    item.lines.hit = Number(val);
+  },
+  DA: (item, val) => {
+    const [line, hit, ..._] = val.split(",").map((v) => Number(v));
+    item.lines.details.push({ line, hit });
+  },
+  FNF: (item, val) => {
+    item.functions.found = Number(val);
+  },
+  FNH: (item, val) => {
+    item.functions.hit = Number(val);
+  },
+  FNDA: (item, val) => {
+    const [line, name, ..._] = val.split(",");
+    item.functions.details.push({ line: Number(line), name });
+  },
+  BRF: (item, val) => {
+    item.branches.found = Number(val);
+  },
+  BRH: (item, val) => {
+    item.branches.hit = Number(val);
+  },
+  BRDA: (item, val) => {
+    const [line, block, branch, hit, ..._] = val
+      .split(",")
+      .map((v) => (v === "-" ? 0 : Number(v)));
+    item.branches.details.push({ line, block, branch, hit });
   },
 };
 
@@ -78,25 +80,32 @@ const metricsMap: MetricsMap = {
  * @returns A CoverageCollection
  */
 function parseFile(str: string): CoverageCollection {
-  let data: CoverageCollection = [];
-  let item: Coverage = createCoverageItem();
+  const data: CoverageCollection = [];
   const lines = str.split("\n");
+  let item = createCoverageItem();
 
-  for (let line of lines) {
-    line = line.trim();
-    const allparts = line.split(":");
-    const metrics = allparts.shift();
-    const args = allparts.join(":");
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    const allParts = trimmedLine.split(":");
+    const metrics = allParts[0];
+    const args = allParts.slice(1).join(":");
 
-    if (item && metrics) {
+    if (metrics) {
       const handler = metricsMap[metrics.toUpperCase()];
       if (handler) {
-        handler(item, args);
+        try {
+          handler(item, args.trim());
+        } catch (e) {
+          console.error(`Error parsing line: ${line}`);
+          console.error(e);
+        }
       }
     }
 
-    if (line.indexOf("end_of_record") > -1) {
-      item && data.push(item);
+    if (trimmedLine.includes("end_of_record")) {
+      if (item) {
+        data.push(item);
+      }
       item = createCoverageItem();
     }
   }
