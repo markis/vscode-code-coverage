@@ -9,7 +9,7 @@ import {
   Uri,
 } from "vscode";
 import {
-  CONFIG_OPTION_COVERAGE_THRESHOLD,
+  ConfigurationOptions,
   ExtensionConfiguration,
 } from "./extension-configuration";
 import { Coverage } from "./coverage-info";
@@ -107,16 +107,16 @@ export class FileCoverageInfoProvider
     if (this._isDisposing || !this._showFileDecorations) return;
 
     const coverage = this._coverageByFile.get(uri.fsPath);
-    if (coverage) {
-      const percentCovered = calculateCoveragePercent(coverage);
-      if (percentCovered < this._coverageThreshold) {
-        return new FileDecoration(
-          FILE_DECORATION_BADGE,
-          `${FILE_DECORATION_TOOLTIP_PRELUDE} ${percentCovered}% vs. ${this._coverageThreshold}%.`,
-          new ThemeColor("markiscodecoverage.insufficientCoverageForeground"),
-        );
-      }
-    }
+    if (!coverage) return;
+
+    const percentCovered = calculateCoveragePercent(coverage);
+    if (percentCovered >= this._coverageThreshold) return;
+
+    return new FileDecoration(
+      FILE_DECORATION_BADGE,
+      `$${FILE_DECORATION_TOOLTIP_PRELUDE} ${percentCovered} vs. ${this._coverageThreshold}.`,
+      new ThemeColor("markiscodecoverage.insufficientCoverageForeground"),
+    );
   }
 
   /**
@@ -128,7 +128,7 @@ export class FileCoverageInfoProvider
   private handleConfigUpdate(e: string): void {
     if (
       this._isDisposing ||
-      e !== CONFIG_OPTION_COVERAGE_THRESHOLD ||
+      e !== ConfigurationOptions.coverageThreshold ||
       this._coverageThreshold === this._configuration.coverageThreshold
     ) {
       return;

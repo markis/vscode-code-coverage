@@ -9,7 +9,7 @@ import {
   MarkdownString,
 } from "vscode";
 import {
-  CONFIG_OPTION_SHOW_DECORATIONS,
+  ConfigurationOptions,
   ExtensionConfiguration,
 } from "./extension-configuration";
 import { Coverage } from "./coverage-info";
@@ -186,7 +186,7 @@ export class CoverageDecorations extends Disposable {
    */
   private onConfigOptionUpdated(configOption: string): void {
     if (
-      configOption === CONFIG_OPTION_SHOW_DECORATIONS &&
+      configOption === ConfigurationOptions.showDecorations &&
       window.activeTextEditor
     ) {
       const activeFile = window.activeTextEditor.document.uri.fsPath;

@@ -20,8 +20,8 @@ import {
   LineCoverageInfo,
 } from "./coverage-info";
 import {
-  CONFIG_OPTION_SEARCH_CRITERIA,
   CONFIG_SECTION_NAME,
+  ConfigurationOptions,
   ExtensionConfiguration,
 } from "./extension-configuration";
 import { parse as parseLcov } from "./parse-lcov";
@@ -72,7 +72,7 @@ export async function activate(
   // Register watchers and listen if the coverage file directory has changed
   registerWatchers();
   extensionConfiguration.onConfigOptionUpdated((e) => {
-    if (e && e === CONFIG_OPTION_SEARCH_CRITERIA) {
+    if (e && e === ConfigurationOptions.searchCriteria) {
       registerWatchers();
     }
   });
