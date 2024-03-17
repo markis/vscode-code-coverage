@@ -107,16 +107,16 @@ export class FileCoverageInfoProvider
     if (this._isDisposing || !this._showFileDecorations) return;
 
     const coverage = this._coverageByFile.get(uri.fsPath);
-    if (coverage) {
-      const percentCovered = calculateCoveragePercent(coverage);
-      if (percentCovered < this._coverageThreshold) {
-        return new FileDecoration(
-          FILE_DECORATION_BADGE,
-          `${FILE_DECORATION_TOOLTIP_PRELUDE} ${percentCovered}% vs. ${this._coverageThreshold}%.`,
-          new ThemeColor("markiscodecoverage.insufficientCoverageForeground"),
-        );
-      }
-    }
+    if (!coverage) return;
+
+    const percentCovered = calculateCoveragePercent(coverage);
+    if (percentCovered >= this._coverageThreshold) return;
+
+    return new FileDecoration(
+      FILE_DECORATION_BADGE,
+      `$${FILE_DECORATION_TOOLTIP_PRELUDE} ${percentCovered} vs. ${this._coverageThreshold}.`,
+      new ThemeColor("markiscodecoverage.insufficientCoverageForeground"),
+    );
   }
 
   /**

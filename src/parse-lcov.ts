@@ -89,12 +89,13 @@ function parseFile(str: string): CoverageCollection {
     const allParts = trimmedLine.split(":");
     const metrics = allParts[0];
     const args = allParts.slice(1).join(":");
+    const trimmedArgs = args.trim();
 
     if (metrics) {
       const handler = metricsMap[metrics.toUpperCase()];
       if (handler) {
         try {
-          handler(item, args.trim());
+          handler(item, trimmedArgs);
         } catch (e) {
           console.error(`Error parsing line: ${line}`);
           console.error(e);
